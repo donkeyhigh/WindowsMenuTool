@@ -94,7 +94,14 @@ static class Config
             bool known = false;
             foreach (Entry s in result)
             {
-                if (s.Id == d.Id) { known = true; break; }
+                if (s.Id != d.Id || s.Custom) continue;
+                // Built-in entries always run what this version says, so fixed paths reach old settings files.
+                // The user's title, letter, order and hidden state are kept.
+                s.Target = d.Target;
+                s.Args = d.Args;
+                s.NeedsFolder = d.NeedsFolder;
+                known = true;
+                break;
             }
             if (!known) result.Add(d);
         }
@@ -125,9 +132,9 @@ static class Config
         l.Add(D("mmsys", "Sounds", "{system}\\control.exe", "mmsys.cpl", "S", false));
         l.Add(D("notepad", "notepad", "{system}\\notepad.exe", "", "E", false));
         l.Add(D("npp", "notepad++", "{programfiles}\\Notepad++\\notepad++.exe", "", "A", false));
-        l.Add(D("appdata", "%appdata%", "{system}\\explorer.exe", "\"{appdata}\"", "D", false));
-        l.Add(D("localappdata", "%localappdata%", "{system}\\explorer.exe", "\"{localappdata}\"", "C", false));
-        l.Add(D("startup", "Shell: startup", "{system}\\explorer.exe", "shell:startup", "U", false));
+        l.Add(D("appdata", "%appdata%", "{windows}\\explorer.exe", "\"{appdata}\"", "D", false));
+        l.Add(D("localappdata", "%localappdata%", "{windows}\\explorer.exe", "\"{localappdata}\"", "C", false));
+        l.Add(D("startup", "Shell: startup", "{windows}\\explorer.exe", "shell:startup", "U", false));
         l.Add(D("cmd", "Open CMD here", "{system}\\cmd.exe", "", "O", true));
         l.Add(D("pwsh", "Open PowerShell here", "{system}\\WindowsPowerShell\\v1.0\\powershell.exe", "", "P", true));
         return l;
@@ -137,6 +144,7 @@ static class Config
     {
         if (string.IsNullOrEmpty(s)) return s;
         return s.Replace("{system}", Environment.GetFolderPath(Environment.SpecialFolder.System))
+                .Replace("{windows}", Environment.GetFolderPath(Environment.SpecialFolder.Windows))
                 .Replace("{appdata}", Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
                 .Replace("{localappdata}", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
                 .Replace("{programfiles}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles))
@@ -199,7 +207,7 @@ sealed class MenuHost : Form
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.0";
+    const string AppVersion = "1.0.1";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
 
