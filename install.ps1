@@ -17,6 +17,10 @@ Get-Process -Name WinToolsMenu -ErrorAction SilentlyContinue | Stop-Process -For
 & $csc /nologo /target:winexe /optimize+ "/out:$exe" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll $src
 if ($LASTEXITCODE -ne 0) { throw 'Compile failed. Nothing was installed.' }
 
+# Keep the scripts next to the program: the menu's "Uninstall program" and updates use them.
+Copy-Item -LiteralPath (Join-Path $here 'uninstall.ps1') -Destination $installDir -Force
+Copy-Item -LiteralPath (Join-Path $here 'install.ps1') -Destination $installDir -Force
+
 $lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'WinToolsMenu.lnk'
 $shell = New-Object -ComObject WScript.Shell
 $s = $shell.CreateShortcut($lnk)

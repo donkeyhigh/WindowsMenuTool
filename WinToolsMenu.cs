@@ -52,12 +52,22 @@ public sealed class Entry
 public sealed class MenuFile
 {
     public List<Entry> Entries { get; set; }
+    public string SkipVersion { get; set; }
+}
+
+public sealed class FooterItem
+{
+    public readonly string Label;
+    public readonly Action Run;
+    public FooterItem(string label, Action run) { Label = label; Run = run; }
 }
 
 static class Config
 {
     public static readonly string Dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinTools");
     public static readonly string FilePath = Path.Combine(Dir, "menu.json");
+    // The update the user chose to skip ("Skip this version"). Kept in menu.json.
+    public static string Skipped;
 
     // Reads menu.json. A broken file is kept as menu.json.bad and the built-in list is used.
     // Built-in entries that the file does not know yet are added at the end.
@@ -69,6 +79,7 @@ static class Config
             try
             {
                 MenuFile f = new JavaScriptSerializer().Deserialize<MenuFile>(File.ReadAllText(FilePath, Encoding.UTF8));
+                if (f != null) Skipped = f.SkipVersion;
                 if (f != null && f.Entries != null) saved = f.Entries;
             }
             catch (Exception)
@@ -93,7 +104,7 @@ static class Config
     public static void Save(List<Entry> entries)
     {
         Directory.CreateDirectory(Dir);
-        string json = new JavaScriptSerializer().Serialize(new MenuFile { Entries = entries });
+        string json = new JavaScriptSerializer().Serialize(new MenuFile { Entries = entries, SkipVersion = Skipped });
         File.WriteAllText(FilePath, json, Encoding.UTF8);
     }
 
@@ -172,6 +183,11 @@ static class Dialogs
 
 sealed class MenuHost : Form
 {
+    string latestVersion;                       // newer version on GitHub, or null
+    bool publicRepo;                            // true only if anyone can see the repo (then the link is shown)
+    int footerHover = -1;
+    readonly System.Windows.Forms.Timer updateTimer = new System.Windows.Forms.Timer();
+
     const int WM_HOTKEY = 0x0312;
     const int HOTKEY_ID = 1;
     const uint MOD_ALT = 0x0001;
@@ -183,6 +199,9 @@ sealed class MenuHost : Form
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
+    const string AppVersion = "1.0.0";
+    const string RepoOwner = "donkeyhigher";
+    const string RepoName = "WindowsMenuTool";
 
     [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
     [DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr hWnd, int id);
@@ -232,6 +251,9 @@ sealed class MenuHost : Form
         Rebuild();
         BuildPad();
         LayoutMenu();
+        updateTimer.Interval = 24 * 60 * 60 * 1000;
+        updateTimer.Tick += delegate { CheckForUpdates(); };
+        updateTimer.Start();
 
         timer.Interval = 1000;
         timer.Tick += delegate { OnTimer(); };
@@ -251,6 +273,7 @@ sealed class MenuHost : Form
         {
             tray.Text = "WinTools Menu: Win+Alt+X is used by another program";
         }
+        CheckForUpdates();
     }
 
     // Called by the settings window after Save.
@@ -278,7 +301,7 @@ sealed class MenuHost : Form
     {
         int rows = RowCount();
         int listW = 2 * ColWidth;
-        int height = Math.Max(HeaderHeight + rows * RowHeight + 8, MinHeight);
+        int height = Math.Max(FooterTop(rows) + Footer().Count * RowHeight + 8, MinHeight);
         ClientSize = new Size(listW + 12 + PadWidth + 12, height);
         int px = listW + 12;
         title.Location = new Point(px, 8);
@@ -582,9 +605,11 @@ sealed class MenuHost : Form
     {
         base.OnMouseMove(e);
         int h = ItemAt(e.X, e.Y);
-        if (h != hover)
+        int fh = FooterAt(e.X, e.Y);
+        if (h != hover || fh != footerHover)
         {
             hover = h;
+            footerHover = fh;
             Invalidate();
         }
     }
@@ -593,6 +618,14 @@ sealed class MenuHost : Form
     {
         base.OnMouseDown(e);
         if (!open || e.Button != MouseButtons.Left) return;
+        int fi = FooterAt(e.X, e.Y);
+        if (fi >= 0)
+        {
+            FooterItem footerItem = Footer()[fi];
+            CloseMenu();
+            BeginInvoke(new Action(footerItem.Run));
+            return;
+        }
         int i = ItemAt(e.X, e.Y);
         if (i < 0 || !ItemEnabled(shown[i])) return;
         Entry en = shown[i];
@@ -621,6 +654,162 @@ sealed class MenuHost : Form
             }
             DrawItem(g, shown[i], r);
         }
+        DrawFooter(g);
+    }
+
+    int FooterTop(int rows) { return HeaderHeight + rows * RowHeight + 10; }
+
+    List<FooterItem> Footer()
+    {
+        List<FooterItem> f = new List<FooterItem>();
+        bool updateWaiting = latestVersion != null && latestVersion != Config.Skipped;
+        if (updateWaiting)
+        {
+            f.Add(new FooterItem("Update to " + latestVersion, delegate { StartUpdate(); }));
+            f.Add(new FooterItem("Skip this version", delegate { SkipCurrentUpdate(); }));
+        }
+        if (publicRepo)
+        {
+            f.Add(new FooterItem("View on GitHub", delegate { Start("https://github.com/" + RepoOwner + "/" + RepoName, "", null, true); }));
+        }
+        f.Add(new FooterItem("Uninstall program", delegate { UninstallProgram(); }));
+        return f;
+    }
+
+    int FooterAt(int x, int y)
+    {
+        if (x < 0 || x >= 2 * ColWidth) return -1;
+        int top = FooterTop(RowCount());
+        if (y < top) return -1;
+        int i = (y - top) / RowHeight;
+        return i < Footer().Count ? i : -1;
+    }
+
+    void DrawFooter(Graphics g)
+    {
+        int top = FooterTop(RowCount());
+        using (Pen sep = new Pen(Color.FromArgb(55, 65, 81)))
+        {
+            g.DrawLine(sep, 10, top - 5, 2 * ColWidth - 10, top - 5);
+        }
+        List<FooterItem> f = Footer();
+        for (int i = 0; i < f.Count; i++)
+        {
+            Rectangle r = new Rectangle(0, top + i * RowHeight, 2 * ColWidth, RowHeight);
+            if (i == footerHover)
+            {
+                using (SolidBrush b = new SolidBrush(Color.FromArgb(55, 65, 81))) { g.FillRectangle(b, r); }
+            }
+            TextRenderer.DrawText(g, f[i].Label, font, new Rectangle(r.X + 14, r.Y, r.Width - 14, r.Height),
+                Color.FromArgb(209, 213, 219), TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter);
+        }
+    }
+
+    // ----- updates (through the GitHub CLI, so the repo can stay private) -----
+
+    static string GhPath()
+    {
+        string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "GitHub CLI\\gh.exe");
+        return File.Exists(p) ? p : "gh";
+    }
+
+    static string PowerShellExe()
+    {
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell\\v1.0\\powershell.exe");
+    }
+
+    static string RunProcess(string exe, string args, out int code)
+    {
+        code = -1;
+        ProcessStartInfo psi = new ProcessStartInfo(exe, args);
+        psi.UseShellExecute = false;
+        psi.RedirectStandardOutput = true;
+        psi.RedirectStandardError = true;
+        psi.CreateNoWindow = true;
+        using (Process p = Process.Start(psi))
+        {
+            string output = p.StandardOutput.ReadToEnd();
+            p.StandardError.ReadToEnd();
+            if (!p.WaitForExit(30000))
+            {
+                try { p.Kill(); } catch (Exception) { }
+                return "";
+            }
+            code = p.ExitCode;
+            return output;
+        }
+    }
+
+    static bool IsNewer(string latest, string current)
+    {
+        try { return new Version(latest) > new Version(current); }
+        catch (Exception) { return false; }
+    }
+
+    // Runs in the background. Asks GitHub for the VERSION file and whether the repo is public.
+    void CheckForUpdates()
+    {
+        ThreadPool.QueueUserWorkItem(delegate
+        {
+            string latest = null;
+            bool pub = false;
+            try
+            {
+                string gh = GhPath();
+                int code;
+                string v = RunProcess(gh, "api -H \"Accept: application/vnd.github.raw\" repos/" + RepoOwner + "/" + RepoName + "/contents/VERSION", out code);
+                if (code == 0) latest = v.Trim();
+                string vis = RunProcess(gh, "repo view " + RepoOwner + "/" + RepoName + " --json visibility --jq .visibility", out code);
+                pub = code == 0 && vis.Trim() == "PUBLIC";
+            }
+            catch (Exception)
+            {
+                // No GitHub CLI or no access: the menu just shows no update.
+            }
+            string foundLatest = latest;
+            bool foundPublic = pub;
+            try { BeginInvoke(new Action(delegate { ApplyCheck(foundLatest, foundPublic); })); }
+            catch (Exception) { }
+        });
+    }
+
+    void ApplyCheck(string latest, bool pub)
+    {
+        publicRepo = pub;
+        latestVersion = (latest != null && IsNewer(latest, AppVersion)) ? latest : null;
+        footerHover = -1;
+        LayoutMenu();
+        Invalidate();
+    }
+
+    void SkipCurrentUpdate()
+    {
+        Config.Skipped = latestVersion;
+        try { Config.Save(entries); } catch (Exception) { }
+        footerHover = -1;
+        LayoutMenu();
+        Invalidate();
+    }
+
+    // Clones the repo to a temp folder and runs its install.ps1, which replaces this program.
+    void StartUpdate()
+    {
+        string tmp = Path.Combine(Path.GetTempPath(), "WindowsMenuTool-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        string ps1 = Path.Combine(Path.GetTempPath(), "WindowsMenuTool-update.ps1");
+        File.WriteAllText(ps1,
+            "$ErrorActionPreference = 'Stop'\r\n" +
+            "& '" + GhPath() + "' repo clone '" + RepoOwner + "/" + RepoName + "' '" + tmp + "' -- --depth 1\r\n" +
+            "& '" + Path.Combine(tmp, "install.ps1") + "'\r\n" +
+            "Read-Host 'Update finished. Press Enter to close'\r\n", Encoding.UTF8);
+        Start(PowerShellExe(), "-NoProfile -ExecutionPolicy Bypass -File \"" + ps1 + "\"", null, true);
+    }
+
+    void UninstallProgram()
+    {
+        if (MessageBox.Show("Uninstall WinTools Menu? You will be asked separately about your settings.", "WinTools",
+                MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
+        string script = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinToolsMenu", "uninstall.ps1");
+        Start(PowerShellExe(), "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"", null, true);
     }
 
     void DrawItem(Graphics g, Entry en, Rectangle r)
