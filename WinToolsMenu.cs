@@ -207,7 +207,7 @@ sealed class MenuHost : Form
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.1";
+    const string AppVersion = "1.0.2";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
 
@@ -680,7 +680,6 @@ sealed class MenuHost : Form
         {
             f.Add(new FooterItem("View on GitHub", delegate { Start("https://github.com/" + RepoOwner + "/" + RepoName, "", null, true); }));
         }
-        f.Add(new FooterItem("Uninstall program", delegate { UninstallProgram(); }));
         return f;
     }
 
@@ -695,6 +694,7 @@ sealed class MenuHost : Form
 
     void DrawFooter(Graphics g)
     {
+        if (Footer().Count == 0) return;
         int top = FooterTop(RowCount());
         using (Pen sep = new Pen(Color.FromArgb(55, 65, 81)))
         {
@@ -812,7 +812,8 @@ sealed class MenuHost : Form
         Start(PowerShellExe(), "-NoProfile -ExecutionPolicy Bypass -File \"" + ps1 + "\"", null, true);
     }
 
-    void UninstallProgram()
+    // Started from the Uninstall button in Custom Shortcuts.
+    public static void UninstallProgram()
     {
         if (MessageBox.Show("Uninstall WinTools Menu? You will be asked separately about your settings.", "WinTools",
                 MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
@@ -1080,6 +1081,14 @@ sealed class SettingsForm : Form
         steamBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
         steamBtn.Click += delegate { AddSteam(); };
         Controls.Add(steamBtn);
+
+        Button uninstallBtn = new Button();
+        uninstallBtn.Text = "Uninstall program...";
+        uninstallBtn.Location = new Point(648, 492);
+        uninstallBtn.Size = new Size(160, 30);
+        uninstallBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+        uninstallBtn.Click += delegate { MenuHost.UninstallProgram(); };
+        Controls.Add(uninstallBtn);
 
         Refresh(-1);
     }
