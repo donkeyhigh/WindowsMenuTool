@@ -195,6 +195,8 @@ sealed class MenuHost : Form
     bool publicRepo;                            // true only if anyone can see the repo (then the link is shown)
     int footerHover = -1;
     readonly System.Windows.Forms.Timer updateTimer = new System.Windows.Forms.Timer();
+    bool checkingUpdates;
+    DateTime lastUpdateCheck = DateTime.MinValue;
 
     const int WM_HOTKEY = 0x0312;
     const int HOTKEY_ID = 1;
@@ -207,7 +209,7 @@ sealed class MenuHost : Form
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.2";
+    const string AppVersion = "1.0.3";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
 
@@ -510,6 +512,8 @@ sealed class MenuHost : Form
         timer.Start();
         TakeFocus();
         Invalidate();
+        // Look for a new version each time the menu opens (at most once a minute).
+        if (DateTime.Now - lastUpdateCheck > TimeSpan.FromMinutes(1)) CheckForUpdates();
     }
 
     // Windows only lets a window take focus if it is allowed to. Attaching to the current foreground
@@ -757,6 +761,9 @@ sealed class MenuHost : Form
     // Runs in the background. Asks GitHub for the VERSION file and whether the repo is public.
     void CheckForUpdates()
     {
+        if (checkingUpdates) return;
+        checkingUpdates = true;
+        lastUpdateCheck = DateTime.Now;
         ThreadPool.QueueUserWorkItem(delegate
         {
             string latest = null;
@@ -783,6 +790,7 @@ sealed class MenuHost : Form
 
     void ApplyCheck(string latest, bool pub)
     {
+        checkingUpdates = false;
         publicRepo = pub;
         latestVersion = (latest != null && IsNewer(latest, AppVersion)) ? latest : null;
         footerHover = -1;
