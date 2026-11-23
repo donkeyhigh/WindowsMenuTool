@@ -239,12 +239,12 @@ sealed class MenuHost : Form
     const uint MOD_WIN = 0x0008;
     const int VK_X = 0x58;
     const byte VK_NOP = 0xE8;
-    const int ColWidth = 220;
+    const int ColWidth = 210;
     const int PadWidth = 440;
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.6";
+    const string AppVersion = "1.0.7";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -386,8 +386,8 @@ sealed class MenuHost : Form
         int rows = RowCount();
         int listW = 2 * ColWidth;
         int height = Math.Max(FooterTop(rows) + Footer().Count * RowHeight + 8, MinHeight);
-        ClientSize = new Size(listW + 6 + PadWidth + 8, height);
-        int px = listW + 6;
+        ClientSize = new Size(listW + 3 + PadWidth + 8, height);
+        int px = listW + 3;
         title.Location = new Point(px, 8);
         pad.Location = new Point(px, HeaderHeight);
         pad.Size = new Size(PadWidth, height - HeaderHeight - 34);
