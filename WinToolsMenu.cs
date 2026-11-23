@@ -239,12 +239,13 @@ sealed class MenuHost : Form
     const uint MOD_WIN = 0x0008;
     const int VK_X = 0x58;
     const byte VK_NOP = 0xE8;
-    const int ColWidth = 180;
+    const int ListWidth = 250;
+    const int MaxRows = 18;      // rows shown at once; the rest scroll
     const int PadWidth = 440;
     const int HeaderHeight = 34;
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.8";
+    const string AppVersion = "1.0.9";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -278,6 +279,7 @@ sealed class MenuHost : Form
     SettingsForm settings;
     bool open;
     int hover = -1;
+    int top;                   // index of the first item shown (the list scrolls)
     DateTime lastKey;
     IntPtr previousForeground = IntPtr.Zero;
 
@@ -379,13 +381,14 @@ sealed class MenuHost : Form
         }
     }
 
-    int RowCount() { return Math.Max(1, (shown.Count + 1) / 2); }
+    int VisibleRows() { return Math.Max(1, Math.Min(shown.Count, MaxRows)); }
+    int MaxTop() { return Math.Max(0, shown.Count - VisibleRows()); }
 
     void LayoutMenu()
     {
-        int rows = RowCount();
-        int listW = 2 * ColWidth;
-        int height = Math.Max(FooterTop(rows) + Footer().Count * RowHeight + 8, MinHeight);
+        top = Math.Min(top, MaxTop());
+        int listW = ListWidth;
+        int height = Math.Max(FooterTop(VisibleRows()) + Footer().Count * RowHeight + 8, MinHeight);
         ClientSize = new Size(listW + 3 + PadWidth + 8, height);
         int px = listW + 3;
         title.Location = new Point(px, 8);
@@ -577,6 +580,7 @@ sealed class MenuHost : Form
         if (!open) return;
         open = false;
         hover = -1;
+        top = 0;
         timer.Stop();
         Location = Parked;
         // The parked window would otherwise keep the keyboard. Give it back to the window that had it.
@@ -619,6 +623,10 @@ sealed class MenuHost : Form
         if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; CloseMenu(); return; }
         // Typing in the pad: letters are text, not shortcuts.
         if (pad.Focused) return;
+        if (e.KeyCode == Keys.Down) { e.SuppressKeyPress = true; ScrollBy(1); return; }
+        if (e.KeyCode == Keys.Up) { e.SuppressKeyPress = true; ScrollBy(-1); return; }
+        if (e.KeyCode == Keys.PageDown) { e.SuppressKeyPress = true; ScrollBy(VisibleRows()); return; }
+        if (e.KeyCode == Keys.PageUp) { e.SuppressKeyPress = true; ScrollBy(-VisibleRows()); return; }
         if (e.KeyCode >= Keys.A && e.KeyCode <= Keys.Z)
         {
             char c = (char)('A' + (int)(e.KeyCode - Keys.A));
@@ -640,16 +648,30 @@ sealed class MenuHost : Form
         if ((DateTime.Now - lastKey).TotalSeconds > 60) CloseMenu();
     }
 
-    // Column-major: the first column holds the first RowCount() entries. Null if the spot is empty.
+    // The item on the row under (x, y), counting from the scroll position. -1 if there is none.
     int ItemAt(int x, int y)
     {
-        if (x < 0 || x >= 2 * ColWidth || y < HeaderHeight) return -1;
-        int rows = RowCount();
-        int col = x / ColWidth;
+        if (x < 0 || x >= ListWidth || y < HeaderHeight) return -1;
         int row = (y - HeaderHeight) / RowHeight;
-        if (row >= rows) return -1;
-        int index = col * rows + row;
+        if (row >= VisibleRows()) return -1;
+        int index = top + row;
         return index < shown.Count ? index : -1;
+    }
+
+    // Moves the list by whole rows. Used by the mouse wheel and the arrow, Page Up and Page Down keys.
+    void ScrollBy(int rows)
+    {
+        int next = Math.Max(0, Math.Min(MaxTop(), top + rows));
+        if (next == top) return;
+        top = next;
+        hover = -1;
+        Invalidate();
+    }
+
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        ScrollBy(e.Delta > 0 ? -3 : 3);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -689,13 +711,12 @@ sealed class MenuHost : Form
         base.OnPaint(e);
         Graphics g = e.Graphics;
         TextRenderer.DrawText(g, Config.Hotkey + " again: customise   (press a letter)", headFont,
-            new Rectangle(10, 8, 2 * ColWidth - 20, 18), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
-        int rows = RowCount();
-        for (int i = 0; i < shown.Count; i++)
+            new Rectangle(10, 8, ListWidth - 20, 18), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
+        int visible = VisibleRows();
+        for (int row = 0; row < visible && top + row < shown.Count; row++)
         {
-            int col = i / rows;
-            int row = i % rows;
-            Rectangle r = new Rectangle(col * ColWidth, HeaderHeight + row * RowHeight, ColWidth, RowHeight);
+            int i = top + row;
+            Rectangle r = new Rectangle(0, HeaderHeight + row * RowHeight, ListWidth, RowHeight);
             if (i == hover)
             {
                 using (SolidBrush b = new SolidBrush(Color.FromArgb(55, 65, 81)))
@@ -724,25 +745,25 @@ sealed class MenuHost : Form
 
     int FooterAt(int x, int y)
     {
-        if (x < 0 || x >= 2 * ColWidth) return -1;
-        int top = FooterTop(RowCount());
-        if (y < top) return -1;
-        int i = (y - top) / RowHeight;
+        if (x < 0 || x >= ListWidth) return -1;
+        int footTop = FooterTop(VisibleRows());
+        if (y < footTop) return -1;
+        int i = (y - footTop) / RowHeight;
         return i < Footer().Count ? i : -1;
     }
 
     void DrawFooter(Graphics g)
     {
         if (Footer().Count == 0) return;
-        int top = FooterTop(RowCount());
+        int footTop = FooterTop(VisibleRows());
         using (Pen sep = new Pen(Color.FromArgb(55, 65, 81)))
         {
-            g.DrawLine(sep, 10, top - 5, 2 * ColWidth - 10, top - 5);
+            g.DrawLine(sep, 10, footTop - 5, ListWidth - 10, footTop - 5);
         }
         List<FooterItem> f = Footer();
         for (int i = 0; i < f.Count; i++)
         {
-            Rectangle r = new Rectangle(0, top + i * RowHeight, 2 * ColWidth, RowHeight);
+            Rectangle r = new Rectangle(0, footTop + i * RowHeight, ListWidth, RowHeight);
             if (i == footerHover)
             {
                 using (SolidBrush b = new SolidBrush(Color.FromArgb(55, 65, 81))) { g.FillRectangle(b, r); }
