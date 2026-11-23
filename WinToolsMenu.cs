@@ -53,6 +53,7 @@ public sealed class MenuFile
 {
     public List<Entry> Entries { get; set; }
     public string SkipVersion { get; set; }
+    public string Hotkey { get; set; }
 }
 
 public sealed class FooterItem
@@ -68,6 +69,8 @@ static class Config
     public static readonly string FilePath = Path.Combine(Dir, "menu.json");
     // The update the user chose to skip ("Skip this version"). Kept in menu.json.
     public static string Skipped;
+    // The hotkey that opens the menu, as text like "Win+Alt+X". Kept in menu.json.
+    public static string Hotkey = "Win+Alt+X";
 
     // Reads menu.json. A broken file is kept as menu.json.bad and the built-in list is used.
     // Built-in entries that the file does not know yet are added at the end.
@@ -80,6 +83,7 @@ static class Config
             {
                 MenuFile f = new JavaScriptSerializer().Deserialize<MenuFile>(File.ReadAllText(FilePath, Encoding.UTF8));
                 if (f != null) Skipped = f.SkipVersion;
+                if (f != null && !string.IsNullOrEmpty(f.Hotkey)) Hotkey = f.Hotkey;
                 if (f != null && f.Entries != null) saved = f.Entries;
             }
             catch (Exception)
@@ -111,8 +115,40 @@ static class Config
     public static void Save(List<Entry> entries)
     {
         Directory.CreateDirectory(Dir);
-        string json = new JavaScriptSerializer().Serialize(new MenuFile { Entries = entries, SkipVersion = Skipped });
+        string json = new JavaScriptSerializer().Serialize(new MenuFile { Entries = entries, SkipVersion = Skipped, Hotkey = Hotkey });
         File.WriteAllText(FilePath, json, Encoding.UTF8);
+    }
+
+    // Parses text like "Win+Alt+X" (modifiers Win, Ctrl, Alt, Shift, then one key).
+    // At least one modifier is required, so the hotkey cannot be a plain letter.
+    public static bool TryParseHotkey(string text, out uint mods, out uint vk)
+    {
+        mods = 0;
+        vk = 0;
+        if (string.IsNullOrEmpty(text)) return false;
+        string[] parts = text.Split('+');
+        for (int i = 0; i < parts.Length; i++)
+        {
+            string p = parts[i].Trim();
+            if (i < parts.Length - 1)
+            {
+                if (string.Equals(p, "Win", StringComparison.OrdinalIgnoreCase)) mods |= 0x0008;
+                else if (string.Equals(p, "Ctrl", StringComparison.OrdinalIgnoreCase)) mods |= 0x0002;
+                else if (string.Equals(p, "Alt", StringComparison.OrdinalIgnoreCase)) mods |= 0x0001;
+                else if (string.Equals(p, "Shift", StringComparison.OrdinalIgnoreCase)) mods |= 0x0004;
+                else return false;
+            }
+            else
+            {
+                Keys k;
+                if (!Enum.TryParse(p, true, out k)) return false;
+                Keys key = k & Keys.KeyCode;
+                if (key == Keys.None || key == Keys.ControlKey || key == Keys.ShiftKey || key == Keys.Menu
+                    || key == Keys.LWin || key == Keys.RWin) return false;
+                vk = (uint)key;
+            }
+        }
+        return mods != 0 && vk != 0;
     }
 
     static Entry D(string id, string title, string target, string args, string letter, bool folder)
@@ -204,14 +240,16 @@ sealed class MenuHost : Form
     const uint MOD_WIN = 0x0008;
     const int VK_X = 0x58;
     const byte VK_NOP = 0xE8;
-    const int ColWidth = 240;
-    const int PadWidth = 320;
+    const int ColWidth = 220;
+    const int PadWidth = 440;
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.3";
+    const string AppVersion = "1.0.4";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
+    uint hotkeyMods, hotkeyKey;   // the menu hotkey as it is registered now
+    bool hotkeyOn;
 
     [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
     [DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr hWnd, int id);
@@ -237,8 +275,6 @@ sealed class MenuHost : Form
     readonly Label title = new Label();
     readonly TextBox pad = new TextBox();
     readonly Label padStatus = new Label();
-    readonly Button copyBtn = new Button();
-    readonly Button clearBtn = new Button();
     SettingsForm settings;
     bool open;
     int hover = -1;
@@ -269,21 +305,59 @@ sealed class MenuHost : Form
         timer.Tick += delegate { OnTimer(); };
 
         tray.Icon = SystemIcons.Application;
-        tray.Text = "WinTools Menu (Win+Alt+X)";
+        tray.Text = "WinTools Menu (" + Config.Hotkey + ")";
         tray.Visible = true;
         ContextMenuStrip cm = new ContextMenuStrip();
-        cm.Items.Add("Custom shortcuts (Win+Alt+X twice)", null, delegate { ShowSettings(); });
+        cm.Items.Add("Custom shortcuts (" + Config.Hotkey + " twice)", null, delegate { ShowSettings(); });
         cm.Items.Add("Exit WinTools Menu", null, delegate { Application.Exit(); });
         tray.ContextMenuStrip = cm;
 
         // Parked off-screen while closed. Hiding the window made Windows stop delivering the hotkey.
         Location = Parked;
-        IntPtr handle = Handle;
-        if (!RegisterHotKey(handle, HOTKEY_ID, MOD_WIN | MOD_ALT, VK_X))
+        if (!Config.TryParseHotkey(Config.Hotkey, out hotkeyMods, out hotkeyKey))
         {
-            tray.Text = "WinTools Menu: Win+Alt+X is used by another program";
+            Config.Hotkey = "Win+Alt+X";
+            Config.TryParseHotkey(Config.Hotkey, out hotkeyMods, out hotkeyKey);
+        }
+        if (!RegisterOwnHotkey(hotkeyMods, hotkeyKey))
+        {
+            tray.Text = "WinTools Menu: " + Config.Hotkey + " is used by another program";
         }
         CheckForUpdates();
+    }
+
+    bool UnregisterOwnHotkey()
+    {
+        if (hotkeyOn) UnregisterHotKey(Handle, HOTKEY_ID);
+        hotkeyOn = false;
+        return true;
+    }
+
+    bool RegisterOwnHotkey(uint mods, uint key)
+    {
+        UnregisterOwnHotkey();
+        hotkeyOn = RegisterHotKey(Handle, HOTKEY_ID, mods, key);
+        return hotkeyOn;
+    }
+
+    // While the settings window records a new combination, the old hotkey must not fire.
+    public void SuspendHotkey() { UnregisterOwnHotkey(); }
+    public void ResumeHotkey() { if (!hotkeyOn) RegisterOwnHotkey(hotkeyMods, hotkeyKey); }
+
+    // Registers a new hotkey text such as "Ctrl+Alt+M". Returns false and keeps the old one if Windows refuses it.
+    public bool ChangeHotkey(string text)
+    {
+        uint mods, key;
+        if (!Config.TryParseHotkey(text, out mods, out key)) return false;
+        if (RegisterOwnHotkey(mods, key))
+        {
+            hotkeyMods = mods;
+            hotkeyKey = key;
+            tray.Text = "WinTools Menu (" + text + ")";
+            return true;
+        }
+        RegisterOwnHotkey(hotkeyMods, hotkeyKey);
+        return false;
     }
 
     // Called by the settings window after Save.
@@ -312,19 +386,17 @@ sealed class MenuHost : Form
         int rows = RowCount();
         int listW = 2 * ColWidth;
         int height = Math.Max(FooterTop(rows) + Footer().Count * RowHeight + 8, MinHeight);
-        ClientSize = new Size(listW + 12 + PadWidth + 12, height);
-        int px = listW + 12;
+        ClientSize = new Size(listW + 6 + PadWidth + 8, height);
+        int px = listW + 6;
         title.Location = new Point(px, 8);
         pad.Location = new Point(px, HeaderHeight);
-        pad.Size = new Size(PadWidth, height - HeaderHeight - 74);
-        padStatus.Location = new Point(px, height - 66);
-        copyBtn.Location = new Point(px, height - 40);
-        clearBtn.Location = new Point(px + PadWidth - 110, height - 40);
+        pad.Size = new Size(PadWidth, height - HeaderHeight - 34);
+        padStatus.Location = new Point(px, height - 26);
     }
 
     void BuildPad()
     {
-        title.Text = "Plain text: paste here, then copy";
+        title.Text = "Plain text: paste here, then copy with Ctrl+C";
         title.Font = headFont;
         title.ForeColor = Color.FromArgb(156, 163, 175);
         title.AutoSize = true;
@@ -351,39 +423,6 @@ sealed class MenuHost : Form
         padStatus.AutoSize = true;
         Controls.Add(padStatus);
 
-        copyBtn.Text = "Copy plain text";
-        copyBtn.Size = new Size(170, 30);
-        copyBtn.TabStop = false;
-        copyBtn.Click += delegate { CopyPlain(); };
-        Controls.Add(copyBtn);
-
-        clearBtn.Text = "Clear";
-        clearBtn.Size = new Size(110, 30);
-        clearBtn.TabStop = false;
-        clearBtn.Click += delegate { pad.Clear(); pad.Focus(); };
-        Controls.Add(clearBtn);
-    }
-
-    // Copies the pad text, which is plain text only, to the clipboard. A few retries because another
-    // program may hold the clipboard for a moment.
-    void CopyPlain()
-    {
-        string text = pad.Text;
-        if (text.Length == 0) { padStatus.Text = "Nothing to copy"; return; }
-        for (int attempt = 0; attempt < 5; attempt++)
-        {
-            try
-            {
-                Clipboard.SetText(text, TextDataFormat.UnicodeText);
-                padStatus.Text = "Copied " + text.Length + " characters";
-                return;
-            }
-            catch (Exception)
-            {
-                Thread.Sleep(100);
-            }
-        }
-        padStatus.Text = "Could not use the clipboard. Try again.";
     }
 
     protected override void WndProc(ref Message m)
@@ -649,7 +688,7 @@ sealed class MenuHost : Form
     {
         base.OnPaint(e);
         Graphics g = e.Graphics;
-        TextRenderer.DrawText(g, "Win+Alt+X again: customise   (press a letter)", headFont,
+        TextRenderer.DrawText(g, Config.Hotkey + " again: customise   (press a letter)", headFont,
             new Rectangle(10, 8, 2 * ColWidth - 20, 18), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
         int rows = RowCount();
         for (int i = 0; i < shown.Count; i++)
@@ -712,7 +751,7 @@ sealed class MenuHost : Form
             {
                 using (SolidBrush b = new SolidBrush(Color.FromArgb(55, 65, 81))) { g.FillRectangle(b, r); }
             }
-            TextRenderer.DrawText(g, f[i].Label, font, new Rectangle(r.X + 14, r.Y, r.Width - 14, r.Height),
+            TextRenderer.DrawText(g, f[i].Label, font, new Rectangle(r.X + 8, r.Y, r.Width - 8, r.Height),
                 Color.FromArgb(209, 213, 219), TextFormatFlags.NoPadding | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter);
         }
     }
@@ -832,7 +871,7 @@ sealed class MenuHost : Form
     void DrawItem(Graphics g, Entry en, Rectangle r)
     {
         TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter;
-        Rectangle textRect = new Rectangle(r.X + 14, r.Y, r.Width - 14, r.Height);
+        Rectangle textRect = new Rectangle(r.X + 8, r.Y, r.Width - 8, r.Height);
         Color textColor = ItemEnabled(en) ? Color.White : Color.FromArgb(107, 114, 128);
         string label = en.Title ?? "";
         TextRenderer.DrawText(g, label, font, textRect, textColor, flags);
@@ -866,7 +905,7 @@ sealed class MenuHost : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        UnregisterHotKey(Handle, HOTKEY_ID);
+        UnregisterOwnHotkey();
         tray.Visible = false;
         tray.Dispose();
         base.OnFormClosed(e);
@@ -1037,6 +1076,9 @@ sealed class SettingsForm : Form
     readonly List<Entry> work;
     readonly ListView list = new ListView();
     readonly Label hint = new Label();
+    readonly Label hotkeyLabel = new Label();
+    readonly TextBox hotkeyBox = new TextBox();
+    string hotkeyText;   // the hotkey this window will save
 
     public SettingsForm(MenuHost host, List<Entry> entries)
     {
@@ -1097,6 +1139,31 @@ sealed class SettingsForm : Form
         uninstallBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         uninstallBtn.Click += delegate { MenuHost.UninstallProgram(); };
         Controls.Add(uninstallBtn);
+
+        hotkeyText = Config.Hotkey;
+        hotkeyLabel.Text = "Menu hotkey:";
+        hotkeyLabel.AutoSize = true;
+        hotkeyLabel.Location = new Point(190, 498);
+        hotkeyLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+        Controls.Add(hotkeyLabel);
+
+        hotkeyBox.Text = hotkeyText;
+        hotkeyBox.ReadOnly = true;
+        hotkeyBox.Location = new Point(275, 494);
+        hotkeyBox.Size = new Size(190, 24);
+        hotkeyBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+        hotkeyBox.KeyDown += OnHotkeyKey;
+        hotkeyBox.GotFocus += delegate { host.SuspendHotkey(); hotkeyBox.Text = "Press the new keys..."; };
+        hotkeyBox.LostFocus += delegate { hotkeyBox.Text = hotkeyText; host.ResumeHotkey(); };
+        Controls.Add(hotkeyBox);
+
+        Button hotkeyDefault = new Button();
+        hotkeyDefault.Text = "Default";
+        hotkeyDefault.Location = new Point(475, 493);
+        hotkeyDefault.Size = new Size(80, 26);
+        hotkeyDefault.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+        hotkeyDefault.Click += delegate { hotkeyText = "Win+Alt+X"; hotkeyBox.Text = hotkeyText; };
+        Controls.Add(hotkeyDefault);
 
         Refresh(-1);
     }
@@ -1273,9 +1340,50 @@ sealed class SettingsForm : Form
 
     void Save()
     {
+        if (!host.ChangeHotkey(hotkeyText))
+        {
+            MessageBox.Show(this, hotkeyText + " cannot be used. Another program may be using it, or Windows reserves it. Pick another one.",
+                "WinTools", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        Config.Hotkey = hotkeyText;
         Config.Save(work);
         host.Reload(work);
         Close();
+    }
+
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vKey);
+
+    // Records the next key combination. Needs Win, Ctrl, Alt or Shift together with a key.
+    void OnHotkeyKey(object sender, KeyEventArgs e)
+    {
+        // Escape and Tab keep their usual meaning (close, move on).
+        if (e.KeyCode == Keys.Escape || e.KeyCode == Keys.Tab) return;
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+        Keys k = e.KeyCode;
+        if (k == Keys.None || k == Keys.ControlKey || k == Keys.ShiftKey || k == Keys.Menu || k == Keys.LWin || k == Keys.RWin) return;
+        bool win = (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+        string combo = "";
+        if (win) combo += "Win+";
+        if (e.Control) combo += "Ctrl+";
+        if (e.Alt) combo += "Alt+";
+        if (e.Shift) combo += "Shift+";
+        if (combo.Length == 0)
+        {
+            hotkeyBox.Text = "Hold Win, Ctrl, Alt or Shift too";
+            return;
+        }
+        string keyName = k.ToString();
+        if (keyName.Length == 2 && keyName[0] == 'D' && char.IsDigit(keyName[1])) keyName = keyName.Substring(1);
+        hotkeyText = combo + keyName;
+        hotkeyBox.Text = hotkeyText;
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        host.ResumeHotkey();
+        base.OnFormClosed(e);
     }
 
     void OnDragEnter(object sender, DragEventArgs e)
