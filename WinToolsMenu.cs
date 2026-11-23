@@ -248,7 +248,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.12";
+    const string AppVersion = "1.0.13";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -727,8 +727,6 @@ sealed class MenuHost : Form
         // Hint above the list, in the same style as the "Plain text" title above the pad.
         TextRenderer.DrawText(g, Config.Hotkey + " again: customise", headFont,
             new Rectangle(10, 8, ListWidth - 10, 14), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
-        TextRenderer.DrawText(g, "(press a letter)", headFont,
-            new Rectangle(10, 21, ListWidth - 10, 14), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
         int visible = VisibleRows();
         for (int row = 0; row < visible && top + row < shown.Count; row++)
         {
