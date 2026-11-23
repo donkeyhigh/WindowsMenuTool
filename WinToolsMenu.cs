@@ -239,12 +239,12 @@ sealed class MenuHost : Form
     const uint MOD_WIN = 0x0008;
     const int VK_X = 0x58;
     const byte VK_NOP = 0xE8;
-    const int ColWidth = 210;
+    const int ColWidth = 180;
     const int PadWidth = 440;
     const int HeaderHeight = 34;
-    const int RowHeight = 28;
+    const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.7";
+    const string AppVersion = "1.0.8";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -270,7 +270,7 @@ sealed class MenuHost : Form
     string folderUnderMouse;                   // folder under the mouse when the menu opened
     readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
     readonly NotifyIcon tray = new NotifyIcon();
-    readonly Font font = new Font("Segoe UI", 11f);
+    readonly Font font = new Font("Segoe UI", 9f);
     readonly Font headFont = new Font("Segoe UI", 8.5f);
     readonly Label title = new Label();
     readonly TextBox pad = new TextBox();
