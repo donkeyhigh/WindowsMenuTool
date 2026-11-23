@@ -228,7 +228,6 @@ static class Dialogs
 sealed class MenuHost : Form
 {
     string latestVersion;                       // newer version on GitHub, or null
-    bool publicRepo;                            // true only if anyone can see the repo (then the link is shown)
     int footerHover = -1;
     readonly System.Windows.Forms.Timer updateTimer = new System.Windows.Forms.Timer();
     bool checkingUpdates;
@@ -245,7 +244,7 @@ sealed class MenuHost : Form
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.5";
+    const string AppVersion = "1.0.6";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -720,10 +719,6 @@ sealed class MenuHost : Form
             f.Add(new FooterItem("Update to " + latestVersion, delegate { StartUpdate(); }));
             f.Add(new FooterItem("Skip this version", delegate { SkipCurrentUpdate(); }));
         }
-        if (publicRepo)
-        {
-            f.Add(new FooterItem("View on GitHub", delegate { Start("https://github.com/" + RepoOwner + "/" + RepoName, "", null, true); }));
-        }
         return f;
     }
 
@@ -803,15 +798,14 @@ sealed class MenuHost : Form
                 // Offline or GitHub unreachable: the menu just shows no update.
             }
             string foundLatest = latest;
-            try { BeginInvoke(new Action(delegate { ApplyCheck(foundLatest, true); })); }
+            try { BeginInvoke(new Action(delegate { ApplyCheck(foundLatest); })); }
             catch (Exception) { }
         });
     }
 
-    void ApplyCheck(string latest, bool pub)
+    void ApplyCheck(string latest)
     {
         checkingUpdates = false;
-        publicRepo = pub;
         latestVersion = (latest != null && IsNewer(latest, AppVersion)) ? latest : null;
         footerHover = -1;
         LayoutMenu();
@@ -847,6 +841,12 @@ sealed class MenuHost : Form
             "  Read-Host 'Press Enter to close'\r\n" +
             "}\r\n", Encoding.UTF8);
         Start(PowerShellExe(), "-NoProfile -ExecutionPolicy Bypass -File \"" + ps1 + "\"", null, true);
+    }
+
+    // Started from the View on GitHub button in Custom Shortcuts.
+    public static void OpenGitHub()
+    {
+        Start("https://github.com/" + RepoOwner + "/" + RepoName, "", null, true);
     }
 
     // Started from the Uninstall button in Custom Shortcuts.
@@ -1129,6 +1129,14 @@ sealed class SettingsForm : Form
         uninstallBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         uninstallBtn.Click += delegate { MenuHost.UninstallProgram(); };
         Controls.Add(uninstallBtn);
+
+        Button githubBtn = new Button();
+        githubBtn.Text = "View on GitHub";
+        githubBtn.Location = new Point(646, 4);
+        githubBtn.Size = new Size(162, 26);
+        githubBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        githubBtn.Click += delegate { MenuHost.OpenGitHub(); };
+        Controls.Add(githubBtn);
 
         hotkeyText = Config.Hotkey;
         hotkeyLabel.Text = "Menu hotkey:";
