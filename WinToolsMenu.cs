@@ -239,13 +239,15 @@ sealed class MenuHost : Form
     const uint MOD_WIN = 0x0008;
     const int VK_X = 0x58;
     const byte VK_NOP = 0xE8;
-    const int ListWidth = 250;
+    const int ListWidth = 200;
+    const int ListGap = 50;        // space between the list and the text pad
     const int MaxRows = 18;      // rows shown at once; the rest scroll
     const int PadWidth = 440;
-    const int HeaderHeight = 34;
+    const int HeaderHeight = 10;   // top of the list
+    const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.9";
+    const string AppVersion = "1.0.10";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -389,11 +391,11 @@ sealed class MenuHost : Form
         top = Math.Min(top, MaxTop());
         int listW = ListWidth;
         int height = Math.Max(FooterTop(VisibleRows()) + Footer().Count * RowHeight + 8, MinHeight);
-        ClientSize = new Size(listW + 3 + PadWidth + 8, height);
-        int px = listW + 3;
+        ClientSize = new Size(listW + ListGap + PadWidth + 8, height);
+        int px = listW + ListGap;
         title.Location = new Point(px, 8);
-        pad.Location = new Point(px, HeaderHeight);
-        pad.Size = new Size(PadWidth, height - HeaderHeight - 34);
+        pad.Location = new Point(px, PadTop);
+        pad.Size = new Size(PadWidth, height - PadTop - 34);
         padStatus.Location = new Point(px, height - 26);
     }
 
@@ -710,8 +712,6 @@ sealed class MenuHost : Form
     {
         base.OnPaint(e);
         Graphics g = e.Graphics;
-        TextRenderer.DrawText(g, Config.Hotkey + " again: customise   (press a letter)", headFont,
-            new Rectangle(10, 8, ListWidth - 20, 18), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
         int visible = VisibleRows();
         for (int row = 0; row < visible && top + row < shown.Count; row++)
         {
