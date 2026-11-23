@@ -248,8 +248,8 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.13";
-    const string RepoOwner = "donkeyhigher";
+    const string AppVersion = "1.0.14";
+    const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
     uint hotkeyMods, hotkeyKey;   // the menu hotkey as it is registered now
