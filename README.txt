@@ -49,9 +49,10 @@ CUSTOM SHORTCUTS
   Your settings are stored in %LOCALAPPDATA%\WinTools\menu.json.
 
 UPDATES
-  The menu checks GitHub for a newer version when it opens (at most once a
-  minute, when it can reach GitHub). If there is one, the footer shows
-  "Update to <version>", and you can also choose "Skip this version".
+  The menu checks GitHub for a newer version when it starts, once a day, and
+  when you open it. It never checks more than once a minute. If there is a
+  newer version, the footer shows "Update to <version>". Click it to update;
+  the menu restarts by itself. "Skip this version" hides that version.
 
 UNINSTALL
   Double-click uninstall.cmd. It stops the menu and removes it from Startup.
