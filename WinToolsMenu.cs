@@ -1,4 +1,4 @@
-// WinTools menu (Win+Alt+X). Items, letters, hidden entries and order come from %LOCALAPPDATA%\WinTools\menu.json.
+﻿// WinTools menu (Win+Alt+X). Items, letters, hidden entries and order come from %LOCALAPPDATA%\WinTools\menu.json.
 // Win+Alt+X again while the menu is open opens Custom Shortcuts: untick to hide, rename, move, add files.
 // Two columns; a plain text pad on the right. RegisterHotKey (no keyboard hook).
 // Esc, a click outside (focus leaves the window), or 60 seconds without a key closes the menu.
@@ -239,7 +239,8 @@ sealed class MenuHost : Form
     const uint MOD_WIN = 0x0008;
     const int VK_X = 0x58;
     const byte VK_NOP = 0xE8;
-    const int ListWidth = 200;
+    int listWidth = 200;       // set in LayoutMenu to fit the longest name
+    int ListWidth { get { return listWidth; } }
     const int ListGap = 50;        // space between the list and the text pad
     const int MaxRows = 18;      // rows shown at once; the rest scroll
     const int PadWidth = 440;
@@ -247,7 +248,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.10";
+    const string AppVersion = "1.0.11";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -386,9 +387,19 @@ sealed class MenuHost : Form
     int VisibleRows() { return Math.Max(1, Math.Min(shown.Count, MaxRows)); }
     int MaxTop() { return Math.Max(0, shown.Count - VisibleRows()); }
 
+    // The list is only as wide as its longest name (and footer item), so the gap to the text pad is measured from the text.
+    int ComputeListWidth()
+    {
+        int widest = 0;
+        foreach (Entry e in shown) widest = Math.Max(widest, TextRenderer.MeasureText(e.Title ?? "", font).Width);
+        foreach (FooterItem f in Footer()) widest = Math.Max(widest, TextRenderer.MeasureText(f.Label, font).Width);
+        return Math.Max(120, widest + 16);
+    }
+
     void LayoutMenu()
     {
         top = Math.Min(top, MaxTop());
+        listWidth = ComputeListWidth();
         int listW = ListWidth;
         int height = Math.Max(FooterTop(VisibleRows()) + Footer().Count * RowHeight + 8, MinHeight);
         ClientSize = new Size(listW + ListGap + PadWidth + 8, height);
