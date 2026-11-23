@@ -245,9 +245,10 @@ sealed class MenuHost : Form
     const int HeaderHeight = 34;
     const int RowHeight = 28;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.4";
+    const string AppVersion = "1.0.5";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
+    const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
     uint hotkeyMods, hotkeyKey;   // the menu hotkey as it is registered now
     bool hotkeyOn;
 
@@ -756,39 +757,11 @@ sealed class MenuHost : Form
         }
     }
 
-    // ----- updates (through the GitHub CLI, so the repo can stay private) -----
-
-    static string GhPath()
-    {
-        string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "GitHub CLI\\gh.exe");
-        return File.Exists(p) ? p : "gh";
-    }
+    // ----- updates (read from the public repo over HTTPS; nothing to install or log in to) -----
 
     static string PowerShellExe()
     {
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell\\v1.0\\powershell.exe");
-    }
-
-    static string RunProcess(string exe, string args, out int code)
-    {
-        code = -1;
-        ProcessStartInfo psi = new ProcessStartInfo(exe, args);
-        psi.UseShellExecute = false;
-        psi.RedirectStandardOutput = true;
-        psi.RedirectStandardError = true;
-        psi.CreateNoWindow = true;
-        using (Process p = Process.Start(psi))
-        {
-            string output = p.StandardOutput.ReadToEnd();
-            p.StandardError.ReadToEnd();
-            if (!p.WaitForExit(30000))
-            {
-                try { p.Kill(); } catch (Exception) { }
-                return "";
-            }
-            code = p.ExitCode;
-            return output;
-        }
     }
 
     static bool IsNewer(string latest, string current)
@@ -797,7 +770,21 @@ sealed class MenuHost : Form
         catch (Exception) { return false; }
     }
 
-    // Runs in the background. Asks GitHub for the VERSION file and whether the repo is public.
+    // Reads a small text file from GitHub. Throws if it cannot be reached.
+    static string FetchText(string url)
+    {
+        System.Net.ServicePointManager.SecurityProtocol |= (System.Net.SecurityProtocolType)3072; // TLS 1.2
+        System.Net.HttpWebRequest req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(url);
+        req.Timeout = 15000;
+        req.UserAgent = "WinToolsMenu";
+        using (System.Net.HttpWebResponse res = (System.Net.HttpWebResponse)req.GetResponse())
+        using (StreamReader sr = new StreamReader(res.GetResponseStream(), Encoding.UTF8))
+        {
+            return sr.ReadToEnd();
+        }
+    }
+
+    // Runs in the background. Asks GitHub for the VERSION file.
     void CheckForUpdates()
     {
         if (checkingUpdates) return;
@@ -806,23 +793,17 @@ sealed class MenuHost : Form
         ThreadPool.QueueUserWorkItem(delegate
         {
             string latest = null;
-            bool pub = false;
             try
             {
-                string gh = GhPath();
-                int code;
-                string v = RunProcess(gh, "api -H \"Accept: application/vnd.github.raw\" repos/" + RepoOwner + "/" + RepoName + "/contents/VERSION", out code);
-                if (code == 0) latest = v.Trim();
-                string vis = RunProcess(gh, "repo view " + RepoOwner + "/" + RepoName + " --json visibility --jq .visibility", out code);
-                pub = code == 0 && vis.Trim() == "PUBLIC";
+                string v = FetchText(RawBase + "VERSION");
+                if (v != null) latest = v.Trim();
             }
             catch (Exception)
             {
-                // No GitHub CLI or no access: the menu just shows no update.
+                // Offline or GitHub unreachable: the menu just shows no update.
             }
             string foundLatest = latest;
-            bool foundPublic = pub;
-            try { BeginInvoke(new Action(delegate { ApplyCheck(foundLatest, foundPublic); })); }
+            try { BeginInvoke(new Action(delegate { ApplyCheck(foundLatest, true); })); }
             catch (Exception) { }
         });
     }
@@ -846,16 +827,25 @@ sealed class MenuHost : Form
         Invalidate();
     }
 
-    // Clones the repo to a temp folder and runs its install.ps1, which replaces this program.
+    // Downloads the program's files from the repo's main branch into a temp folder and runs its install.ps1,
+    // which replaces this program and starts the new one. The menu closes and reopens by itself.
     void StartUpdate()
     {
         string tmp = Path.Combine(Path.GetTempPath(), "WindowsMenuTool-" + Guid.NewGuid().ToString("N").Substring(0, 8));
         string ps1 = Path.Combine(Path.GetTempPath(), "WindowsMenuTool-update.ps1");
         File.WriteAllText(ps1,
             "$ErrorActionPreference = 'Stop'\r\n" +
-            "& '" + GhPath() + "' repo clone '" + RepoOwner + "/" + RepoName + "' '" + tmp + "' -- --depth 1\r\n" +
-            "& '" + Path.Combine(tmp, "install.ps1") + "'\r\n" +
-            "Read-Host 'Update finished. Press Enter to close'\r\n", Encoding.UTF8);
+            "try {\r\n" +
+            "  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n" +
+            "  New-Item -ItemType Directory -Force -Path '" + tmp + "' | Out-Null\r\n" +
+            "  foreach ($f in 'WinToolsMenu.cs', 'install.ps1', 'uninstall.ps1') {\r\n" +
+            "    Invoke-WebRequest -UseBasicParsing -Uri ('" + RawBase + "' + $f) -OutFile (Join-Path '" + tmp + "' $f)\r\n" +
+            "  }\r\n" +
+            "  & (Join-Path '" + tmp + "' 'install.ps1')\r\n" +
+            "} catch {\r\n" +
+            "  Write-Host ('Update failed: ' + $_.Exception.Message)\r\n" +
+            "  Read-Host 'Press Enter to close'\r\n" +
+            "}\r\n", Encoding.UTF8);
         Start(PowerShellExe(), "-NoProfile -ExecutionPolicy Bypass -File \"" + ps1 + "\"", null, true);
     }
 
