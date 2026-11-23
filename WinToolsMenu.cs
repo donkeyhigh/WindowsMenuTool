@@ -244,11 +244,11 @@ sealed class MenuHost : Form
     const int ListGap = 50;        // space between the list and the text pad
     const int MaxRows = 18;      // rows shown at once; the rest scroll
     const int PadWidth = 440;
-    const int HeaderHeight = 10;   // top of the list
+    const int HeaderHeight = 34;   // top of the list, below the hint
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.11";
+    const string AppVersion = "1.0.12";
     const string RepoOwner = "donkeyhigher";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -393,6 +393,7 @@ sealed class MenuHost : Form
         int widest = 0;
         foreach (Entry e in shown) widest = Math.Max(widest, TextRenderer.MeasureText(e.Title ?? "", font).Width);
         foreach (FooterItem f in Footer()) widest = Math.Max(widest, TextRenderer.MeasureText(f.Label, font).Width);
+        widest = Math.Max(widest, TextRenderer.MeasureText(Config.Hotkey + " again: customise", headFont).Width);
         return Math.Max(120, widest + 16);
     }
 
@@ -723,6 +724,11 @@ sealed class MenuHost : Form
     {
         base.OnPaint(e);
         Graphics g = e.Graphics;
+        // Hint above the list, in the same style as the "Plain text" title above the pad.
+        TextRenderer.DrawText(g, Config.Hotkey + " again: customise", headFont,
+            new Rectangle(10, 8, ListWidth - 10, 14), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
+        TextRenderer.DrawText(g, "(press a letter)", headFont,
+            new Rectangle(10, 21, ListWidth - 10, 14), Color.FromArgb(156, 163, 175), TextFormatFlags.NoPadding);
         int visible = VisibleRows();
         for (int row = 0; row < visible && top + row < shown.Count; row++)
         {
