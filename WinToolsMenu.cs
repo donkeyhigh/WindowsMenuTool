@@ -599,7 +599,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.20";
+    const string AppVersion = "1.0.21";
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawRoot = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/";
@@ -1376,8 +1376,8 @@ sealed class MenuHost : Form
         Invalidate();
     }
 
-    // From the tray menu: forgets "Skip this version", checks GitHub now and says what it found.
-    void CheckNowIgnoringSkip()
+    // From the tray menu and Custom Shortcuts: forgets "Skip this version", checks GitHub now and offers the update.
+    public void CheckNowIgnoringSkip()
     {
         Config.Skipped = null;
         try { Config.Save(entries); } catch (Exception) { }
@@ -1741,6 +1741,14 @@ sealed class SettingsForm : Form
         uninstallBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         uninstallBtn.Click += delegate { MenuHost.UninstallProgram(); };
         Controls.Add(uninstallBtn);
+
+        Button updateBtn = new Button();
+        updateBtn.Text = "Check for updates...";
+        updateBtn.Location = new Point(578, 492);
+        updateBtn.Size = new Size(160, 30);
+        updateBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+        updateBtn.Click += delegate { host.CheckNowIgnoringSkip(); };
+        Controls.Add(updateBtn);
 
         Button githubBtn = new Button();
         githubBtn.Text = "View on GitHub";
