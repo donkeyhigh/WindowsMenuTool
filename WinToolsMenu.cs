@@ -107,9 +107,35 @@ static class Config
                 known = true;
                 break;
             }
-            if (!known) result.Add(d);
+            if (!known)
+            {
+                // A new built-in must not take a letter the user's items already use.
+                if (LetterUsed(result, d.Letter)) d.Letter = FreeLetter(result, d.Title);
+                result.Add(d);
+            }
         }
         return result;
+    }
+
+    static bool LetterUsed(List<Entry> entries, string letter)
+    {
+        if (string.IsNullOrEmpty(letter)) return false;
+        foreach (Entry e in entries)
+        {
+            if (string.Equals(e.Letter, letter, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    // First letter of the title that is free, otherwise the first free letter A-Z, otherwise none.
+    static string FreeLetter(List<Entry> entries, string title)
+    {
+        foreach (char ch in (title ?? "") + "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        {
+            char c = char.ToUpperInvariant(ch);
+            if (c >= 'A' && c <= 'Z' && !LetterUsed(entries, c.ToString())) return c.ToString();
+        }
+        return "";
     }
 
     public static void Save(List<Entry> entries)
@@ -173,6 +199,12 @@ static class Config
         l.Add(D("startup", "Shell: startup", "{windows}\\explorer.exe", "shell:startup", "U", false));
         l.Add(D("cmd", "Open CMD here", "{system}\\cmd.exe", "", "O", true));
         l.Add(D("pwsh", "Open PowerShell here", "{system}\\WindowsPowerShell\\v1.0\\powershell.exe", "", "P", true));
+        l.Add(D("godmode", "God Mode", "{windows}\\explorer.exe", "shell:::{ED7BA470-8E54-465E-825C-99712043E01C}", "Q", false));
+        // Bare name: ShellExecute finds it in System32 or, on newer Windows 11, as an app alias.
+        l.Add(D("sandbox", "Windows Sandbox", "WindowsSandbox.exe", "", "X", false));
+        l.Add(D("about", "System, About", "ms-settings:about", "", "Y", false));
+        l.Add(D("sysdm", "Systemegenskaper (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false));
+        l.Add(D("bluetooth", "Add Bluetooth Device", "{system}\\DevicePairingWizard.exe", "", "B", false));
         return l;
     }
 
@@ -248,7 +280,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.14";
+    const string AppVersion = "1.0.15";
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";

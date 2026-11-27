@@ -26,6 +26,13 @@ BUILT-IN SHORTCUTS (press the letter shown underlined)
   C  %localappdata% folder          U  Startup folder (shell:startup)
   O  Open CMD in the current folder
   P  Open PowerShell in the current folder
+  Q  God Mode (all settings in one folder)
+  X  Windows Sandbox (Pro/Enterprise/Education, the feature must be turned on)
+  Y  System, About (Settings > System > About)
+  K  Systemegenskaper (sysdm.cpl)
+  B  Add Bluetooth Device (the Add a device wizard)
+  If one of your own items already uses one of these letters, the new item
+  gets another free letter.
 
 USE
   Win+Alt+X          open the menu
