@@ -28,6 +28,7 @@ Read only the file for the area you change; the list below says what is where.
 | `install.ps1` / `install.cmd` | Compile all `.cs` files, install to `%LOCALAPPDATA%\WinToolsMenu`, Startup shortcut |
 | `update.ps1` / `update.cmd` | Manual update; copied into the install folder |
 | `uninstall.ps1` / `uninstall.cmd`, `WinTools.ico`, `VERSION`, `README.md`, `LICENSE` (MIT) | |
+| `screenshots/` | Images shown in README.md (not installed, not in the release zip) |
 
 Settings live in `%LOCALAPPDATA%\WinTools\menu.json`.
 
