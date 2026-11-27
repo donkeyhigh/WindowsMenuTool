@@ -75,6 +75,8 @@ UPDATES
   when you open it. It never checks more than once a minute. If there is a
   newer version, the footer shows "Update to <version>". Click it to update;
   the menu restarts by itself. "Skip this version" hides that version.
+  "Check for updates" in the tray icon's menu checks right away and also shows
+  a version you skipped.
 
 UNINSTALL
   Double-click uninstall.cmd. It stops the menu and removes it from Startup.

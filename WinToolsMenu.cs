@@ -599,10 +599,12 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.19";
+    const string AppVersion = "1.0.20";
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
-    const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
+    const string RawRoot = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/";
+    const string RawBase = RawRoot + "main/";
+    const string ApiCommit = "https://api.github.com/repos/" + RepoOwner + "/" + RepoName + "/commits/main";
     uint hotkeyMods, hotkeyKey;   // the menu hotkey as it is registered now
     bool hotkeyOn;
 
@@ -673,6 +675,7 @@ sealed class MenuHost : Form
         tray.Visible = true;
         ContextMenuStrip cm = new ContextMenuStrip();
         cm.Items.Add("Custom shortcuts (" + Config.Hotkey + " twice)", null, delegate { ShowSettings(); });
+        cm.Items.Add("Check for updates", null, delegate { CheckNowIgnoringSkip(); });
         cm.Items.Add("Exit WinTools Menu", null, delegate { Application.Exit(); });
         tray.ContextMenuStrip = cm;
 
@@ -1373,6 +1376,40 @@ sealed class MenuHost : Form
         Invalidate();
     }
 
+    // From the tray menu: forgets "Skip this version", checks GitHub now and says what it found.
+    void CheckNowIgnoringSkip()
+    {
+        Config.Skipped = null;
+        try { Config.Save(entries); } catch (Exception) { }
+        ThreadPool.QueueUserWorkItem(delegate
+        {
+            string latest = null;
+            try { latest = FetchText(RawBase + "VERSION").Trim(); } catch (Exception) { }
+            string found = latest;
+            try
+            {
+                BeginInvoke(new Action(delegate
+                {
+                    ApplyCheck(found);
+                    if (found == null)
+                    {
+                        MessageBox.Show("Could not reach GitHub. Check the internet connection and try again.", "WinTools");
+                    }
+                    else if (latestVersion == null)
+                    {
+                        MessageBox.Show("WinTools Menu " + AppVersion + " is the newest version.", "WinTools");
+                    }
+                    else if (MessageBox.Show("Version " + latestVersion + " is available (you have " + AppVersion + ").\n\nUpdate now?",
+                        "WinTools", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                    {
+                        StartUpdate();
+                    }
+                }));
+            }
+            catch (Exception) { }
+        });
+    }
+
     void SkipCurrentUpdate()
     {
         Config.Skipped = latestVersion;
@@ -1393,8 +1430,15 @@ sealed class MenuHost : Form
             "try {\r\n" +
             "  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n" +
             "  New-Item -ItemType Directory -Force -Path '" + tmp + "' | Out-Null\r\n" +
+            // raw.githubusercontent.com caches main/ for up to 5 minutes, so files right after a push can be a mix
+            // of old and new. Files at the exact commit of main are never stale. If GitHub's API fails, use main/.
+            "  $base = '" + RawBase + "'\r\n" +
+            "  try {\r\n" +
+            "    $sha = (Invoke-RestMethod -UseBasicParsing -UserAgent 'WinToolsMenu' -Uri '" + ApiCommit + "').sha\r\n" +
+            "    if ($sha) { $base = '" + RawRoot + "' + $sha + '/' }\r\n" +
+            "  } catch { }\r\n" +
             "  foreach ($f in 'WinToolsMenu.cs', 'install.ps1', 'uninstall.ps1', 'WinTools.ico') {\r\n" +
-            "    Invoke-WebRequest -UseBasicParsing -Uri ('" + RawBase + "' + $f) -OutFile (Join-Path '" + tmp + "' $f)\r\n" +
+            "    Invoke-WebRequest -UseBasicParsing -Uri ($base + $f) -OutFile (Join-Path '" + tmp + "' $f)\r\n" +
             "  }\r\n" +
             "  & (Join-Path '" + tmp + "' 'install.ps1')\r\n" +
             "} catch {\r\n" +
