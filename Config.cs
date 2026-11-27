@@ -146,26 +146,41 @@ static class Config
     }
 
     // Built-in names that changed: { id, old name }. Users who kept the old name get the new one.
+    // Names end with the Run command (Win+R) in parentheses when there is a short one.
     static readonly string[][] RenamedDefaults =
     {
         new string[] { "sysdm", "Systemegenskaper (sysdm.cpl)" },
+        new string[] { "firewall", "firewall.cpl" },
+        new string[] { "appwiz", "Add remove programs" },
+        new string[] { "ncpa", "Advanced network settings" },
+        new string[] { "taskmgr", "Task Manager" },
+        new string[] { "devmgmt", "Device Manager" },
+        new string[] { "compmgmt", "Computer Management" },
+        new string[] { "mmsys", "Sounds" },
+        new string[] { "notepad", "notepad" },
+        new string[] { "npp", "notepad++" },
+        new string[] { "startup", "Shell: startup" },
+        new string[] { "sandbox", "Windows Sandbox" },
+        new string[] { "about", "System, About" },
+        new string[] { "bluetooth", "Add Bluetooth Device" },
+        new string[] { "reliability", "Reliability Monitor" },
     };
 
     public static List<Entry> Defaults()
     {
         List<Entry> l = new List<Entry>();
-        l.Add(D("firewall", "firewall.cpl", "{system}\\control.exe", "firewall.cpl", "F", false));
-        l.Add(D("appwiz", "Add remove programs", "{system}\\control.exe", "appwiz.cpl", "R", false));
-        l.Add(D("ncpa", "Advanced network settings", "{system}\\control.exe", "ncpa.cpl", "W", false));
-        l.Add(D("taskmgr", "Task Manager", "{system}\\taskmgr.exe", "", "T", false));
-        l.Add(D("devmgmt", "Device Manager", "{system}\\devmgmt.msc", "", "G", false));
-        l.Add(D("compmgmt", "Computer Management", "{system}\\compmgmt.msc", "", "M", false));
-        l.Add(D("mmsys", "Sounds", "{system}\\control.exe", "mmsys.cpl", "S", false));
-        l.Add(D("notepad", "notepad", "{system}\\notepad.exe", "", "E", false));
-        l.Add(D("npp", "notepad++", "{programfiles}\\Notepad++\\notepad++.exe", "", "A", false));
+        l.Add(D("firewall", "Firewall (firewall.cpl)", "{system}\\control.exe", "firewall.cpl", "F", false));
+        l.Add(D("appwiz", "Add or remove programs (appwiz.cpl)", "{system}\\control.exe", "appwiz.cpl", "R", false));
+        l.Add(D("ncpa", "Advanced network settings (ncpa.cpl)", "{system}\\control.exe", "ncpa.cpl", "W", false));
+        l.Add(D("taskmgr", "Task Manager (taskmgr)", "{system}\\taskmgr.exe", "", "T", false));
+        l.Add(D("devmgmt", "Device Manager (devmgmt.msc)", "{system}\\devmgmt.msc", "", "G", false));
+        l.Add(D("compmgmt", "Computer Management (compmgmt.msc)", "{system}\\compmgmt.msc", "", "M", false));
+        l.Add(D("mmsys", "Sounds (mmsys.cpl)", "{system}\\control.exe", "mmsys.cpl", "S", false));
+        l.Add(D("notepad", "Notepad (notepad)", "{system}\\notepad.exe", "", "E", false));
+        l.Add(D("npp", "Notepad++ (notepad++)", "{programfiles}\\Notepad++\\notepad++.exe", "", "A", false));
         l.Add(D("appdata", "%appdata%", "{windows}\\explorer.exe", "\"{appdata}\"", "D", false));
         l.Add(D("localappdata", "%localappdata%", "{windows}\\explorer.exe", "\"{localappdata}\"", "C", false));
-        l.Add(D("startup", "Shell: startup", "{windows}\\explorer.exe", "shell:startup", "U", false));
+        l.Add(D("startup", "Startup folder (shell:startup)", "{windows}\\explorer.exe", "shell:startup", "U", false));
         // Consoles in the folder under the mouse. {folder} is that folder, {folderps} the same for a PowerShell '...' string.
         // The folder goes in the arguments: an elevated program ignores the working directory it is given.
         // The admin versions are shown by default; the normal ones are in the list, unticked.
@@ -181,11 +196,11 @@ static class Config
         l.Add(ConsoleEntry("wt", "Open Terminal here", wt, WtArgs, "J", false, true));
         l.Add(D("godmode", "God Mode", "{windows}\\explorer.exe", "shell:::{ED7BA470-8E54-465E-825C-99712043E01C}", "Q", false));
         // Bare name: ShellExecute finds it in System32 or, on newer Windows 11, as an app alias.
-        l.Add(D("sandbox", "Windows Sandbox", "WindowsSandbox.exe", "", "X", false));
-        l.Add(D("about", "System, About", "ms-settings:about", "", "Y", false));
+        l.Add(D("sandbox", "Windows Sandbox (WindowsSandbox)", "WindowsSandbox.exe", "", "X", false));
+        l.Add(D("about", "System, About (ms-settings:about)", "ms-settings:about", "", "Y", false));
         l.Add(D("sysdm", "System Properties (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false));
-        l.Add(D("bluetooth", "Add Bluetooth Device", "{system}\\DevicePairingWizard.exe", "", "B", false));
-        l.Add(D("reliability", "Reliability Monitor", "{system}\\perfmon.exe", "/rel", "L", false));
+        l.Add(D("bluetooth", "Add Bluetooth Device (DevicePairingWizard)", "{system}\\DevicePairingWizard.exe", "", "B", false));
+        l.Add(D("reliability", "Reliability Monitor (perfmon /rel)", "{system}\\perfmon.exe", "/rel", "L", false));
         return l;
     }
 

@@ -19,23 +19,30 @@ INSTALL
   except when you answer Yes to install a missing tool (see MISSING TOOLS).
 
 BUILT-IN SHORTCUTS (press the letter shown underlined)
-  F  Firewall                       R  Add or remove programs
-  W  Advanced network settings      T  Task Manager
-  G  Device Manager                 M  Computer Management
-  S  Sounds                         E  Notepad
-  A  Notepad++ (offers install)     D  %appdata% folder
-  C  %localappdata% folder          U  Startup folder (shell:startup)
-  O  Open CMD here as administrator          N  Open CMD here
-  P  Open PowerShell here as administrator   H  Open PowerShell here
-  I  Open Terminal here as administrator     J  Open Terminal here
+  The Run command (Win+R) is shown in parentheses after the name.
+  F  Firewall (firewall.cpl)
+  R  Add or remove programs (appwiz.cpl)
+  W  Advanced network settings (ncpa.cpl)
+  T  Task Manager (taskmgr)
+  G  Device Manager (devmgmt.msc)
+  M  Computer Management (compmgmt.msc)
+  S  Sounds (mmsys.cpl)
+  E  Notepad (notepad)
+  A  Notepad++ (notepad++) - offers to install it if it is missing
+  D  %appdata% folder
+  C  %localappdata% folder
+  U  Startup folder (shell:startup)
+  O  Open CMD here (admin)              N  Open CMD here
+  P  Open PowerShell here (admin)       H  Open PowerShell here
+  I  Open Terminal here (admin)         J  Open Terminal here
      "Here" is the Explorer folder under the mouse (or the desktop). The
      administrator versions are shown; the normal ones are in Custom Shortcuts,
      unticked - tick them to show them too.
   Q  God Mode (all settings in one folder)
-  X  Windows Sandbox (Pro/Enterprise/Education, the feature must be turned on)
-  Y  System, About (Settings > System > About)
+  X  Windows Sandbox (WindowsSandbox) - Pro/Enterprise/Education, turned on
+  Y  System, About (ms-settings:about)
   K  System Properties (sysdm.cpl)
-  B  Add Bluetooth Device (the Add a device wizard)
+  B  Add Bluetooth Device (DevicePairingWizard)
   L  Reliability Monitor (perfmon /rel)
   If one of your own items already uses one of these letters, the new item
   gets another free letter.
