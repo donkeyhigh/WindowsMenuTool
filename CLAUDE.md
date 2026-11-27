@@ -7,6 +7,9 @@ in Norwegian, that is a slip: translate it to English (e.g. "Systemegenskaper" -
 If a built-in item's default name changes, add the old name to `Config.RenamedDefaults` so saved settings follow.
 Released (first public release v1.0.31). Other people may have any version from 1.0.31 on, so updates from those
 must keep working.
+Installed menus update from `donkeyhigh/WindowsMenuTool` on GitHub without signing in: the repo must stay public
+and keep its name and owner, or every installed copy stops updating. Releases are only for downloading; updates
+do not use them.
 
 ## Files
 Read only the file for the area you change; the list below says what is where.
