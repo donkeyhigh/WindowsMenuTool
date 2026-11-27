@@ -8,16 +8,12 @@ Press **Win+Alt+X** to open it, then press the underlined letter of an item to s
 ## Features
 
 - **One hotkey, one letter:** Win+Alt+X opens the menu at the mouse; a letter starts the item. Click works too.
-- **Windows tools close at hand:** Firewall, Add or remove programs, network settings, Bluetooth, Sounds, Device
-  Manager, Resource and Reliability Monitor, Classic Control Panel, God Mode, Startup and AppData folders, and more.
+- **Windows tools close at hand:** Firewall, Add or remove programs, network settings, Bluetooth, Sounds, Device Manager, Resource and Reliability Monitor, Classic Control Panel, God Mode, Startup and AppData folders, and more.
 - **Open CMD, PowerShell or Terminal here:** in the Explorer folder under the mouse, as administrator or not.
-- **Plain text pad:** paste text to strip its formatting, edit it, and copy it back with Ctrl+C. Shows the
-  character count.
+- **Plain text pad:** paste text to strip its formatting, edit it, and copy it back with Ctrl+C. Shows the character count.
 - **Search the text:** Ctrl+F in the pad, Enter / Shift+Enter for the next / previous match.
-- **Customise the menu:** add your own programs, scripts, files, folders, web addresses and Steam games; rename,
-  hide, reorder and change letters; change the hotkey. Press Win+Alt+X again while the menu is open.
-- **Installs missing tools:** offers to install Notepad++ and turn on Windows Sandbox (or install Sandboxie-Plus on
-  Windows Home).
+- **Customise the menu:** add your own programs, scripts, files, folders, web addresses and Steam games; rename, hide, reorder and change letters; change the hotkey. Press Win+Alt+X again while the menu is open.
+- **Installs missing tools:** offers to install Notepad++ and turn on Windows Sandbox (or install Sandboxie-Plus on Windows Home).
 - **Updates itself** from this repository, and can uninstall itself.
 
 ![Custom Shortcuts](screenshots/custom-shortcuts.png)
