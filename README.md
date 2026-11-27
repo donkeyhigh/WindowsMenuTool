@@ -148,6 +148,9 @@ from Startup, and asks before deleting your settings file.
 
 Startup can also be turned off in Settings > Apps > Startup (WinTools Menu).
 
+I made this entirely with Claude / Opus 5.5. If you're uncertain about installing unsigned code you can probably just import the repo to Claude or some other AI yourself and have it check it over that it's clean and there's nothing fishy. Then have it compile WMT for you. 
+Comment if there's a feature you want, I'll see if it fits with the vision of a light-weight mobile control-panel and if it should be implemented.
+
 ## License
 
 [MIT](LICENSE)
