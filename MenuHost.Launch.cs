@@ -15,8 +15,6 @@ using System.Windows.Forms;
 
 partial class MenuHost
 {
-    bool ItemEnabled(Entry e) { return !e.NeedsFolder || folderUnderMouse != null; }
-
     // The folder shown by the Explorer window under the mouse, or the desktop. Null if it is not a folder.
     static string FolderUnderCursor()
     {
@@ -166,9 +164,15 @@ partial class MenuHost
         }
         string target = Config.Expand(e.Target);
         string args = Config.Expand(e.Args);
+        if (e.NeedsFolder && folder == null)
+        {
+            // No folder under the mouse: open the console in its own default folder.
+            if (e.Admin) StartAdmin(target, "");
+            else Start(target, "", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), true);
+            return;
+        }
         if (e.NeedsFolder)
         {
-            if (folder == null) return;
             // "C:\" would end in \" and escape the closing quote, so a folder never ends in a backslash here.
             string f = folder.TrimEnd('\\');
             if (f.EndsWith(":")) f += "\\.";

@@ -164,6 +164,12 @@ static class Config
         new string[] { "about", "System, About" },
         new string[] { "bluetooth", "Add Bluetooth Device" },
         new string[] { "reliability", "Reliability Monitor" },
+        new string[] { "cmdadmin", "Open CMD here (admin)" },
+        new string[] { "pwshadmin", "Open PowerShell here (admin)" },
+        new string[] { "wtadmin", "Open Terminal here (admin)" },
+        new string[] { "cmd", "Open CMD here" },
+        new string[] { "pwsh", "Open PowerShell here" },
+        new string[] { "wt", "Open Terminal here" },
     };
 
     // Unticked by default (in the list, not in the menu).
@@ -176,7 +182,7 @@ static class Config
     // The built-in items in their default order, letters and ticks.
     public static List<Entry> Defaults()
     {
-        // Consoles in the folder under the mouse. {folder} is that folder, {folderps} the same for a PowerShell '...' string.
+        // Consoles in the folder under the mouse (their default folder when there is none). {folder} is that folder, {folderps} the same for a PowerShell '...' string.
         // The folder goes in the arguments: an elevated program ignores the working directory it is given.
         const string CmdArgs = "/k cd /d \"{folder}\"";
         const string PsArgs = "-NoExit -Command \"Set-Location -LiteralPath '{folderps}'\"";
@@ -190,9 +196,9 @@ static class Config
         l.Add(D("ncpa", "Advanced network settings (ncpa.cpl)", "{system}\\control.exe", "ncpa.cpl", "W", false));
         l.Add(D("bluetooth", "Add Bluetooth Device (DevicePairingWizard)", "{system}\\DevicePairingWizard.exe", "", "B", false));
         l.Add(D("mmsys", "Sounds (mmsys.cpl)", "{system}\\control.exe", "mmsys.cpl", "S", false));
-        l.Add(ConsoleEntry("cmdadmin", "Open CMD here (admin)", cmd, CmdArgs, "N", true, false));
-        l.Add(ConsoleEntry("pwshadmin", "Open PowerShell here (admin)", ps, PsArgs, "H", true, false));
-        l.Add(ConsoleEntry("wtadmin", "Open Terminal here (admin)", wt, WtArgs, "I", true, false));
+        l.Add(ConsoleEntry("cmdadmin", "CMD (here) (admin)", cmd, CmdArgs, "N", true, false));
+        l.Add(ConsoleEntry("pwshadmin", "PowerShell (here) (admin)", ps, PsArgs, "H", true, false));
+        l.Add(ConsoleEntry("wtadmin", "Terminal (here) (admin)", wt, WtArgs, "I", true, false));
         l.Add(Off(D("notepad", "Notepad (notepad)", "{system}\\notepad.exe", "", "E", false)));
         l.Add(D("npp", "Notepad++ (notepad++)", "{programfiles}\\Notepad++\\notepad++.exe", "", "A", false));
         l.Add(D("godmode", "God Mode", "{windows}\\explorer.exe", "shell:::{ED7BA470-8E54-465E-825C-99712043E01C}", "Q", false));
@@ -209,10 +215,10 @@ static class Config
         l.Add(Off(D("sysdm", "System Properties (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false)));
         l.Add(Off(D("about", "System, About (ms-settings:about)", "ms-settings:about", "", "Y", false)));
         l.Add(Off(D("taskmgr", "Task Manager (taskmgr)", "{system}\\taskmgr.exe", "", "T", false)));
-        l.Add(ConsoleEntry("cmd", "Open CMD here", cmd, CmdArgs, "O", false, true));
-        l.Add(ConsoleEntry("pwsh", "Open PowerShell here", ps, PsArgs, "P", false, true));
+        l.Add(ConsoleEntry("cmd", "CMD (here)", cmd, CmdArgs, "O", false, true));
+        l.Add(ConsoleEntry("pwsh", "PowerShell (here)", ps, PsArgs, "P", false, true));
         l.Add(Off(D("compmgmt", "Computer Management (compmgmt.msc)", "{system}\\compmgmt.msc", "", "M", false)));
-        l.Add(ConsoleEntry("wt", "Open Terminal here", wt, WtArgs, "J", false, true));
+        l.Add(ConsoleEntry("wt", "Terminal (here)", wt, WtArgs, "J", false, true));
         return l;
     }
 

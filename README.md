@@ -9,7 +9,7 @@ Press **Win+Alt+X** to open it, then press the underlined letter of an item to s
 
 - **One hotkey, one letter:** Win+Alt+X opens the menu at the mouse; a letter starts the item. Click works too.
 - **Windows tools close at hand:** Firewall, Add or remove programs, network settings, Bluetooth, Sounds, Device Manager, Resource and Reliability Monitor, Classic Control Panel, God Mode, Startup and AppData folders, and more.
-- **Open CMD, PowerShell or Terminal here:** in the Explorer folder under the mouse, as administrator or not.
+- **Open CMD, PowerShell or Terminal here:** in the Explorer folder under the mouse (or the usual folder), as administrator or not.
 - **Plain text pad:** paste text to strip its formatting, edit it, and copy it back with Ctrl+C. Shows the character count.
 - **Search the text:** Ctrl+F in the pad, Enter / Shift+Enter for the next / previous match.
 - **Customise the menu:** add your own programs, scripts, files, folders, web addresses and Steam games; rename, hide, reorder and change letters; change the hotkey. Press Win+Alt+X again while the menu is open.
@@ -60,9 +60,9 @@ The Run command (Win+R) is shown in parentheses after the name.
 | W | Advanced network settings (ncpa.cpl) |
 | B | Add Bluetooth Device (DevicePairingWizard) |
 | S | Sounds (mmsys.cpl) |
-| N | Open CMD here (admin) |
-| H | Open PowerShell here (admin) |
-| I | Open Terminal here (admin) |
+| N | CMD (here) (admin) |
+| H | PowerShell (here) (admin) |
+| I | Terminal (here) (admin) |
 | A | Notepad++ (notepad++), offers to install it if it is missing |
 | Q | God Mode (all settings in one folder) |
 | Z | Classic Control Panel (control) |
@@ -82,12 +82,13 @@ The Run command (Win+R) is shown in parentheses after the name.
 | K | System Properties (sysdm.cpl) |
 | Y | System, About (ms-settings:about) |
 | T | Task Manager (taskmgr) |
-| O | Open CMD here |
-| P | Open PowerShell here |
+| O | CMD (here) |
+| P | PowerShell (here) |
 | M | Computer Management (compmgmt.msc) |
-| J | Open Terminal here |
+| J | Terminal (here) |
 
-"Here" is the Explorer folder under the mouse (or the desktop). The (admin) versions run as administrator;
+"Here" is the Explorer folder under the mouse (or the desktop): "(here)" is green in the menu. When the mouse is over
+something else, "(here)" is grey and struck out, and the console opens in its usual folder. The (admin) versions run as administrator;
 Windows asks first. If one of your own items already uses one of these letters, the new item gets another free
 letter.
 

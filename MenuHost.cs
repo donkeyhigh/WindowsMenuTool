@@ -34,10 +34,11 @@ sealed partial class MenuHost : Form
     const int PadWidth = 440;
     const int HeaderHeight = 34;   // top of the list, below the hint
     const int PadTop = 34;         // top of the text pad (its title sits above it)
+    const string HereTag = "(here)";   // in console item names; drawn to show if there is a folder under the mouse
     const int FindRow = 32;        // room taken from the top of the pad while the search box is open
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.33";   // also in VERSION
+    const string AppVersion = "1.0.34";   // also in VERSION
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
@@ -468,7 +469,7 @@ sealed partial class MenuHost : Form
             char c = (char)('A' + (int)(e.KeyCode - Keys.A));
             foreach (Entry en in shown)
             {
-                if (en.Letter == c.ToString() && ItemEnabled(en))
+                if (en.Letter == c.ToString())
                 {
                     e.SuppressKeyPress = true;
                     Launch(en);
@@ -535,7 +536,7 @@ sealed partial class MenuHost : Form
             return;
         }
         int i = ItemAt(e.X, e.Y);
-        if (i < 0 || !ItemEnabled(shown[i])) return;
+        if (i < 0) return;
         Launch(shown[i]);
     }
 
@@ -614,9 +615,31 @@ sealed partial class MenuHost : Form
     {
         TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter;
         Rectangle textRect = new Rectangle(r.X + 8, r.Y, r.Width - 8, r.Height);
-        Color textColor = ItemEnabled(en) ? Color.White : Color.FromArgb(107, 114, 128);
         string label = en.Title ?? "";
-        TextRenderer.DrawText(g, label, font, textRect, textColor, flags);
+        Size big = new Size(int.MaxValue, int.MaxValue);
+        // Console items: "(here)" is green when there is a folder under the mouse, grey and struck out when not.
+        int here = en.NeedsFolder ? label.IndexOf(HereTag, StringComparison.OrdinalIgnoreCase) : -1;
+        if (here < 0)
+        {
+            TextRenderer.DrawText(g, label, font, textRect, Color.White, flags);
+        }
+        else
+        {
+            int hereX = textRect.X + (here == 0 ? 0 : TextRenderer.MeasureText(g, label.Substring(0, here), font, big, flags).Width);
+            int afterX = textRect.X + TextRenderer.MeasureText(g, label.Substring(0, here + HereTag.Length), font, big, flags).Width;
+            bool hasFolder = folderUnderMouse != null;
+            Color hereColor = hasFolder ? Color.FromArgb(52, 211, 153) : Color.FromArgb(107, 114, 128);
+            TextRenderer.DrawText(g, label.Substring(0, here), font, textRect, Color.White, flags);
+            TextRenderer.DrawText(g, label.Substring(here, HereTag.Length), font,
+                new Rectangle(hereX, r.Y, r.Right - hereX, r.Height), hereColor, flags);
+            TextRenderer.DrawText(g, label.Substring(here + HereTag.Length), font,
+                new Rectangle(afterX, r.Y, r.Right - afterX, r.Height), Color.White, flags);
+            if (!hasFolder)
+            {
+                int midY = r.Y + r.Height / 2 + 1;
+                using (Pen strike = new Pen(hereColor, 1.5f)) { g.DrawLine(strike, hereX, midY, afterX, midY); }
+            }
+        }
 
         // Underline the letter in the name. If the name no longer has it, show it after the name.
         char key = string.IsNullOrEmpty(en.Letter) ? '\0' : en.Letter[0];
@@ -626,7 +649,6 @@ sealed partial class MenuHost : Form
         {
             if (char.ToUpperInvariant(label[i]) == key) { idx = i; break; }
         }
-        Size big = new Size(int.MaxValue, int.MaxValue);
         if (idx < 0)
         {
             string tag = "(" + en.Letter + ")";
