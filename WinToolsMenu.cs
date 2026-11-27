@@ -620,7 +620,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.24";
+    const string AppVersion = "1.0.25";
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
@@ -1423,6 +1423,20 @@ sealed class MenuHost : Form
         Invalidate();
     }
 
+    // VERSION at the newest commit of main. main/VERSION can be up to 5 minutes old (GitHub's cache), which is fine
+    // for the automatic checks but not when the user asks. Uses GitHub's API (60 calls an hour), so only on request.
+    static string FetchFreshVersion()
+    {
+        try
+        {
+            Dictionary<string, object> commit = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(FetchText(ApiCommit));
+            string sha = commit != null && commit.ContainsKey("sha") ? commit["sha"] as string : null;
+            if (!string.IsNullOrEmpty(sha)) return FetchText(RawRoot + sha + "/VERSION").Trim();
+        }
+        catch (Exception) { }
+        return FetchText(RawBase + "VERSION").Trim();
+    }
+
     // From the tray menu and Custom Shortcuts: forgets "Skip this version", checks GitHub now and offers the update.
     public void CheckNowIgnoringSkip()
     {
@@ -1431,7 +1445,7 @@ sealed class MenuHost : Form
         ThreadPool.QueueUserWorkItem(delegate
         {
             string latest = null;
-            try { latest = FetchText(RawBase + "VERSION").Trim(); } catch (Exception) { }
+            try { latest = FetchFreshVersion(); } catch (Exception) { }
             string found = latest;
             try
             {
