@@ -3,7 +3,9 @@
 A small keyboard menu for Windows 11 with shortcuts to Windows tools and your own programs, files and games.
 Press **Win+Alt+X** to open it, then press the underlined letter of an item to start it.
 
-![The menu](screenshots/menu.png)
+| Opened over a folder: "(here)" is green | Opened elsewhere: "(here)" is struck out |
+|---|---|
+| ![The menu opened over a folder](screenshots/menu-folder.png) | ![The menu opened elsewhere](screenshots/menu-no-folder.png) |
 
 ## Features
 
