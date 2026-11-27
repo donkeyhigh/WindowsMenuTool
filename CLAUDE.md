@@ -5,8 +5,8 @@ The owner writes in Norwegian; answer in Norwegian. Code, comments, commit messa
 **Everything the program shows is in English**: item names, messages, buttons. When the owner gives a name or text
 in Norwegian, that is a slip: translate it to English (e.g. "Systemegenskaper" -> "System Properties").
 If a built-in item's default name changes, add the old name to `Config.RenamedDefaults` so saved settings follow.
-Not released yet: only the owner uses it, on their own PCs. Compatibility with old versions only has to cover
-updating those PCs (from 1.0.20 and newer); no one else has an old version.
+Released (first public release v1.0.31). Other people may have any version from 1.0.31 on, so updates from those
+must keep working.
 
 ## Files
 Read only the file for the area you change; the list below says what is where.
@@ -24,7 +24,7 @@ Read only the file for the area you change; the list below says what is where.
 | `SettingsForm.cs` | Custom Shortcuts window (list, letters, reorder, hotkey, buttons) |
 | `install.ps1` / `install.cmd` | Compile all `.cs` files, install to `%LOCALAPPDATA%\WinToolsMenu`, Startup shortcut |
 | `update.ps1` / `update.cmd` | Manual update; copied into the install folder |
-| `uninstall.ps1` / `uninstall.cmd`, `WinTools.ico`, `VERSION`, `README.txt` | |
+| `uninstall.ps1` / `uninstall.cmd`, `WinTools.ico`, `VERSION`, `README.md`, `LICENSE` (MIT) | |
 
 Settings live in `%LOCALAPPDATA%\WinTools\menu.json`.
 
@@ -55,3 +55,9 @@ Settings live in `%LOCALAPPDATA%\WinTools\menu.json`.
 - Folder items (`NeedsFolder`) use `{folder}` / `{folderps}` in Args; `Admin` items start with the `runas` verb.
 - Missing Notepad++ / Windows Sandbox: the `Installers` class offers winget installs, enabling the Sandbox feature,
   or Sandboxie-Plus on Windows Home. An installed Sandboxie (Plus or classic) is used instead, and the shortcut renamed.
+
+## Releases
+- Keep `README.md` in step with what the program does (built-in list, buttons, behaviour).
+- A GitHub Release is made for bigger versions only, when the owner asks: tag `vX.Y.Z` on the commit, attach
+  `WinToolsMenu-X.Y.Z.zip` with the files needed to install (all `.cs`, `*.ps1`, `*.cmd`, `WinTools.ico`, `VERSION`,
+  `README.md`, `LICENSE`; not `CLAUDE.md`). Installed menus update from `main` either way.
