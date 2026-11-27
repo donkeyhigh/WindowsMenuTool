@@ -31,6 +31,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Compile failed. Nothing was installed.' }
 # Keep the scripts next to the program: the menu's "Uninstall program" and updates use them.
 Copy-Item -LiteralPath (Join-Path $here 'uninstall.ps1') -Destination $installDir -Force
 Copy-Item -LiteralPath (Join-Path $here 'install.ps1') -Destination $installDir -Force
+# update.cmd / update.ps1 there update by hand. Updates from 1.0.22 and older do not bring them along.
+foreach ($f in 'update.ps1', 'update.cmd') {
+  $p = Join-Path $here $f
+  if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination $installDir -Force }
+}
 
 $lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'WinToolsMenu.lnk'
 $shell = New-Object -ComObject WScript.Shell

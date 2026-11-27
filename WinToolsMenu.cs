@@ -44,10 +44,11 @@ public sealed class Entry
     public string Letter { get; set; }
     public bool Hidden { get; set; }
     public bool NeedsFolder { get; set; }
+    public bool Admin { get; set; }      // run as administrator (Windows asks first)
 
     public Entry Clone()
     {
-        return new Entry { Id = Id, Custom = Custom, Title = Title, Target = Target, Args = Args, Letter = Letter, Hidden = Hidden, NeedsFolder = NeedsFolder };
+        return new Entry { Id = Id, Custom = Custom, Title = Title, Target = Target, Args = Args, Letter = Letter, Hidden = Hidden, NeedsFolder = NeedsFolder, Admin = Admin };
     }
 }
 
@@ -106,6 +107,7 @@ static class Config
                 s.Target = d.Target;
                 s.Args = d.Args;
                 s.NeedsFolder = d.NeedsFolder;
+                s.Admin = d.Admin;
                 known = true;
                 break;
             }
@@ -184,6 +186,14 @@ static class Config
         return new Entry { Id = id, Title = title, Target = target, Args = args, Letter = letter, NeedsFolder = folder };
     }
 
+    static Entry ConsoleEntry(string id, string title, string target, string args, string letter, bool admin, bool hidden)
+    {
+        Entry e = D(id, title, target, args, letter, true);
+        e.Admin = admin;
+        e.Hidden = hidden;
+        return e;
+    }
+
     public static List<Entry> Defaults()
     {
         List<Entry> l = new List<Entry>();
@@ -199,8 +209,19 @@ static class Config
         l.Add(D("appdata", "%appdata%", "{windows}\\explorer.exe", "\"{appdata}\"", "D", false));
         l.Add(D("localappdata", "%localappdata%", "{windows}\\explorer.exe", "\"{localappdata}\"", "C", false));
         l.Add(D("startup", "Shell: startup", "{windows}\\explorer.exe", "shell:startup", "U", false));
-        l.Add(D("cmd", "Open CMD here", "{system}\\cmd.exe", "", "O", true));
-        l.Add(D("pwsh", "Open PowerShell here", "{system}\\WindowsPowerShell\\v1.0\\powershell.exe", "", "P", true));
+        // Consoles in the folder under the mouse. {folder} is that folder, {folderps} the same for a PowerShell '...' string.
+        // The folder goes in the arguments: an elevated program ignores the working directory it is given.
+        // The admin versions are shown by default; the normal ones are in the list, unticked.
+        const string CmdArgs = "/k cd /d \"{folder}\"";
+        const string PsArgs = "-NoExit -Command \"Set-Location -LiteralPath '{folderps}'\"";
+        const string WtArgs = "-d \"{folder}\"";
+        string cmd = "{system}\\cmd.exe", ps = "{system}\\WindowsPowerShell\\v1.0\\powershell.exe", wt = "{localappdata}\\Microsoft\\WindowsApps\\wt.exe";
+        l.Add(ConsoleEntry("cmdadmin", "Open CMD here (admin)", cmd, CmdArgs, "O", true, false));
+        l.Add(ConsoleEntry("cmd", "Open CMD here", cmd, CmdArgs, "N", false, true));
+        l.Add(ConsoleEntry("pwshadmin", "Open PowerShell here (admin)", ps, PsArgs, "P", true, false));
+        l.Add(ConsoleEntry("pwsh", "Open PowerShell here", ps, PsArgs, "H", false, true));
+        l.Add(ConsoleEntry("wtadmin", "Open Terminal here (admin)", wt, WtArgs, "I", true, false));
+        l.Add(ConsoleEntry("wt", "Open Terminal here", wt, WtArgs, "J", false, true));
         l.Add(D("godmode", "God Mode", "{windows}\\explorer.exe", "shell:::{ED7BA470-8E54-465E-825C-99712043E01C}", "Q", false));
         // Bare name: ShellExecute finds it in System32 or, on newer Windows 11, as an app alias.
         l.Add(D("sandbox", "Windows Sandbox", "WindowsSandbox.exe", "", "X", false));
@@ -599,7 +620,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.22";
+    const string AppVersion = "1.0.23";
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
@@ -950,7 +971,12 @@ sealed class MenuHost : Form
         if (e.NeedsFolder)
         {
             if (folder == null) return;
-            Start(target, args, folder, false);
+            // "C:\" would end in \" and escape the closing quote, so a folder never ends in a backslash here.
+            string f = folder.TrimEnd('\\');
+            if (f.EndsWith(":")) f += "\\.";
+            args = (args ?? "").Replace("{folderps}", f.Replace("'", "''")).Replace("{folder}", f);
+            if (e.Admin) StartAdmin(target, args);
+            else Start(target, args, folder, true);
             return;
         }
         // Built-in Notepad++ may live under the 32-bit folder instead.
@@ -1065,6 +1091,26 @@ sealed class MenuHost : Form
             if (text.Length > 0 && titles.Contains(text.ToString())) return f;
         }
         return IntPtr.Zero;
+    }
+
+    // Runs as administrator. Windows asks first; answering No is not an error.
+    static void StartAdmin(string file, string args)
+    {
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo(file, args ?? "");
+            psi.UseShellExecute = true;
+            psi.Verb = "runas";
+            Process.Start(psi);
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            if (ex.NativeErrorCode != 1223) MessageBox.Show(ex.Message, "WinTools"); // 1223: the user said No
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "WinTools");
+        }
     }
 
     static void Start(string file, string args, string dir, bool shell)
@@ -1438,7 +1484,7 @@ sealed class MenuHost : Form
             "    $sha = (Invoke-RestMethod -UseBasicParsing -UserAgent 'WinToolsMenu' -Uri '" + ApiCommit + "').sha\r\n" +
             "    if ($sha) { $base = '" + RawRoot + "' + $sha + '/' }\r\n" +
             "  } catch { }\r\n" +
-            "  foreach ($f in 'WinToolsMenu.cs', 'install.ps1', 'uninstall.ps1', 'WinTools.ico') {\r\n" +
+            "  foreach ($f in 'WinToolsMenu.cs', 'install.ps1', 'uninstall.ps1', 'update.ps1', 'update.cmd', 'WinTools.ico') {\r\n" +
             "    Invoke-WebRequest -UseBasicParsing -Uri ($base + $f) -OutFile (Join-Path '" + tmp + "' $f)\r\n" +
             "  }\r\n" +
             "  & (Join-Path '" + tmp + "' 'install.ps1')\r\n" +

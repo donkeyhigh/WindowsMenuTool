@@ -25,8 +25,12 @@ BUILT-IN SHORTCUTS (press the letter shown underlined)
   S  Sounds                         E  Notepad
   A  Notepad++ (offers install)     D  %appdata% folder
   C  %localappdata% folder          U  Startup folder (shell:startup)
-  O  Open CMD in the current folder
-  P  Open PowerShell in the current folder
+  O  Open CMD here as administrator          N  Open CMD here
+  P  Open PowerShell here as administrator   H  Open PowerShell here
+  I  Open Terminal here as administrator     J  Open Terminal here
+     "Here" is the Explorer folder under the mouse (or the desktop). The
+     administrator versions are shown; the normal ones are in Custom Shortcuts,
+     unticked - tick them to show them too.
   Q  God Mode (all settings in one folder)
   X  Windows Sandbox (Pro/Enterprise/Education, the feature must be turned on)
   Y  System, About (Settings > System > About)
@@ -79,6 +83,10 @@ UPDATES
   right away, also finds a version you skipped, and offers to install it.
   The installed version is shown in the Custom Shortcuts title bar and when you
   hover over the tray icon.
+
+  To update by hand, run update.cmd in %LOCALAPPDATA%\WinToolsMenu, or paste
+  this into PowerShell:
+    irm https://raw.githubusercontent.com/donkeyhigh/WindowsMenuTool/main/update.ps1 | iex
 
 UNINSTALL
   Double-click uninstall.cmd. It stops the menu and removes it from Startup.
