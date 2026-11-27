@@ -599,7 +599,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.17";
+    const string AppVersion = "1.0.18";
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -856,14 +856,26 @@ sealed class MenuHost : Form
 
     static string Quote(string path) { return "\"" + path + "\""; }
 
-    // Closes the menu and runs the entry. The menu still has the foreground here, so it can pass it on:
-    // without this, apps started through a broker (Settings, Store apps) open behind other windows.
+    // Closes the menu and runs the entry while the menu still has the foreground, so Windows lets the new
+    // window come to the front. Handing the focus back first made Settings and control panels open behind
+    // other windows (only flashing in the taskbar). If nothing has taken the focus after a few seconds,
+    // it goes back to the window that had it before the menu opened.
     void Launch(Entry en)
     {
-        AllowSetForegroundWindow(-1); // ASFW_ANY
         string folder = folderUnderMouse;
-        CloseMenu();
-        BeginInvoke(new Action(delegate { RunEntry(en, folder); }));
+        IntPtr previous = previousForeground;
+        CloseMenu(false);
+        AllowSetForegroundWindow(-1); // ASFW_ANY: also programs started through a broker (Settings, Store apps)
+        RunEntry(en, folder);
+        System.Windows.Forms.Timer giveBack = new System.Windows.Forms.Timer();
+        giveBack.Interval = 3000;
+        giveBack.Tick += delegate
+        {
+            giveBack.Stop();
+            giveBack.Dispose();
+            if (!open && GetForegroundWindow() == Handle) GiveFocusTo(previous);
+        };
+        giveBack.Start();
     }
 
     // Windows Sandbox is WindowsSandbox.exe in System32 on older Windows 11, and an app on newer builds.
@@ -1009,7 +1021,8 @@ sealed class MenuHost : Form
         Focus();
     }
 
-    void CloseMenu()
+    // giveBackFocus false: the menu keeps the foreground so a program started right after can take it over.
+    void CloseMenu(bool giveBackFocus = true)
     {
         if (!open) return;
         open = false;
@@ -1018,15 +1031,18 @@ sealed class MenuHost : Form
         timer.Stop();
         Location = Parked;
         // The parked window would otherwise keep the keyboard. Give it back to the window that had it.
-        if (previousForeground != IntPtr.Zero && previousForeground != Handle)
-        {
-            uint fgThread = GetWindowThreadProcessId(previousForeground, IntPtr.Zero);
-            uint me = GetCurrentThreadId();
-            bool attached = fgThread != 0 && fgThread != me && AttachThreadInput(me, fgThread, true);
-            SetForegroundWindow(previousForeground);
-            if (attached) AttachThreadInput(me, fgThread, false);
-        }
+        if (giveBackFocus) GiveFocusTo(previousForeground);
         previousForeground = IntPtr.Zero;
+    }
+
+    void GiveFocusTo(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || hwnd == Handle) return;
+        uint fgThread = GetWindowThreadProcessId(hwnd, IntPtr.Zero);
+        uint me = GetCurrentThreadId();
+        bool attached = fgThread != 0 && fgThread != me && AttachThreadInput(me, fgThread, true);
+        SetForegroundWindow(hwnd);
+        if (attached) AttachThreadInput(me, fgThread, false);
     }
 
     void ShowSettings()
