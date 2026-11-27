@@ -280,7 +280,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.15";
+    const string AppVersion = "1.0.16";
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -294,6 +294,7 @@ sealed class MenuHost : Form
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr lpdwProcessId);
     [DllImport("user32.dll")] static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(int dwProcessId);
     [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(System.Drawing.Point p);
     [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
@@ -536,9 +537,68 @@ sealed class MenuHost : Form
 
     static string Quote(string path) { return "\"" + path + "\""; }
 
+    // Closes the menu and runs the entry. The menu still has the foreground here, so it can pass it on:
+    // without this, apps started through a broker (Settings, Store apps) open behind other windows.
+    void Launch(Entry en)
+    {
+        AllowSetForegroundWindow(-1); // ASFW_ANY
+        string folder = folderUnderMouse;
+        CloseMenu();
+        BeginInvoke(new Action(delegate { RunEntry(en, folder); }));
+    }
+
+    // Windows Sandbox is WindowsSandbox.exe in System32 on older Windows 11, and an app on newer builds.
+    static void RunSandbox()
+    {
+        string exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsSandbox.exe");
+        if (File.Exists(exe))
+        {
+            Start(exe, "", null, true);
+            return;
+        }
+        string app = null;
+        try { app = FindApp("WindowsSandbox", "Windows Sandbox"); } catch (Exception) { }
+        if (app != null)
+        {
+            Start(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), "shell:AppsFolder\\" + app, null, true);
+            return;
+        }
+        MessageBox.Show("Windows Sandbox is not installed on this PC.\n\n"
+            + "It needs Windows 11 Pro, Enterprise or Education. Turn it on in\n"
+            + "\"Turn Windows features on or off\" (optionalfeatures.exe), then restart the PC.", "WinTools");
+    }
+
+    // The launch id (shell:AppsFolder\<id>) of an installed app whose id contains idPart or whose name is name.
+    static string FindApp(string idPart, string name)
+    {
+        Type t = Type.GetTypeFromProgID("Shell.Application");
+        if (t == null) return null;
+        object shell = Activator.CreateInstance(t);
+        object folder = t.InvokeMember("NameSpace", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { "shell:AppsFolder" });
+        if (folder == null) return null;
+        object items = folder.GetType().InvokeMember("Items", System.Reflection.BindingFlags.InvokeMethod, null, folder, null);
+        int count = (int)items.GetType().InvokeMember("Count", System.Reflection.BindingFlags.GetProperty, null, items, null);
+        for (int i = 0; i < count; i++)
+        {
+            object it = items.GetType().InvokeMember("Item", System.Reflection.BindingFlags.InvokeMethod, null, items, new object[] { i });
+            if (it == null) continue;
+            string path = it.GetType().InvokeMember("Path", System.Reflection.BindingFlags.GetProperty, null, it, null) as string;
+            string title = it.GetType().InvokeMember("Name", System.Reflection.BindingFlags.GetProperty, null, it, null) as string;
+            if (string.IsNullOrEmpty(path)) continue;
+            if (path.IndexOf(idPart, StringComparison.OrdinalIgnoreCase) >= 0
+                || string.Equals(title, name, StringComparison.OrdinalIgnoreCase)) return path;
+        }
+        return null;
+    }
+
     // Runs one entry. Folder entries run in the folder under the mouse. Scripts run through their host.
     static void RunEntry(Entry e, string folder)
     {
+        if (!e.Custom && e.Id == "sandbox")
+        {
+            RunSandbox();
+            return;
+        }
         string target = Config.Expand(e.Target);
         string args = Config.Expand(e.Args);
         if (e.NeedsFolder)
@@ -681,8 +741,7 @@ sealed class MenuHost : Form
                 if (en.Letter == c.ToString() && ItemEnabled(en))
                 {
                     e.SuppressKeyPress = true;
-                    CloseMenu();
-                    BeginInvoke(new Action(delegate { RunEntry(en, folderUnderMouse); }));
+                    Launch(en);
                     return;
                 }
             }
@@ -747,9 +806,7 @@ sealed class MenuHost : Form
         }
         int i = ItemAt(e.X, e.Y);
         if (i < 0 || !ItemEnabled(shown[i])) return;
-        Entry en = shown[i];
-        CloseMenu();
-        BeginInvoke(new Action(delegate { RunEntry(en, folderUnderMouse); }));
+        Launch(shown[i]);
     }
 
     protected override void OnPaint(PaintEventArgs e)
