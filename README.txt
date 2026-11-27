@@ -63,7 +63,9 @@ CUSTOM SHORTCUTS
     and files or folders. Drag them into the window, or use "Add files...".
   - Add Steam games: "Add Steam game..." lists the games installed in your
     Steam library (Steam must be installed).
-  - Hide, rename, move up or down, and remove items.
+  - Hide, rename and remove items.
+  - Change the order: drag a row to where you want it, or select it and use
+    Up / Down (or Alt+Up / Alt+Down). The menu shows the items in this order.
   - Reset everything to the built-in list.
   - Change the hotkey: click "Menu hotkey", press the new combination (it must
     include Win, Ctrl, Alt or Shift), then Save. "Default" puts back Win+Alt+X.

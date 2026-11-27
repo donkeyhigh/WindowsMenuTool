@@ -620,7 +620,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.23";
+    const string AppVersion = "1.0.24";
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
@@ -1736,7 +1736,7 @@ sealed class SettingsForm : Form
         DragEnter += OnDragEnter;
         DragDrop += OnDragDrop;
 
-        hint.Text = "Untick to hide an entry. Drag files here to add them. Double-click the Key column to change a letter.";
+        hint.Text = "Drag rows or Alt+Up/Down to reorder. Untick to hide. Drop files to add. Double-click a letter to change it.";
         hint.Location = new Point(12, 10);
         hint.AutoSize = true;
         Controls.Add(hint);
@@ -1755,6 +1755,14 @@ sealed class SettingsForm : Form
         list.AllowDrop = true;
         list.DragEnter += OnDragEnter;
         list.DragDrop += OnDragDrop;
+        list.DragOver += OnListDragOver;
+        list.DragLeave += delegate { ClearDropHighlight(); };
+        list.ItemDrag += delegate(object s, ItemDragEventArgs e)
+        {
+            ListViewItem it = e.Item as ListViewItem;
+            if (it != null) list.DoDragDrop(new DragRow { Index = it.Index }, DragDropEffects.Move);
+            ClearDropHighlight();
+        };
         list.ItemChecked += delegate(object s, ItemCheckedEventArgs e) { ((Entry)e.Item.Tag).Hidden = !e.Item.Checked; };
         list.MouseDoubleClick += delegate(object s, MouseEventArgs e)
         {
@@ -1878,6 +1886,13 @@ sealed class SettingsForm : Form
     {
         base.OnKeyDown(e);
         if (e.KeyCode == Keys.Escape) Close();
+        // Alt+Up / Alt+Down move the selected entry, like the Up and Down buttons.
+        if (e.Alt && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down) && !hotkeyBox.Focused)
+        {
+            MoveSelected(e.KeyCode == Keys.Up ? -1 : 1);
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
     }
 
     int Selected()
@@ -2069,13 +2084,57 @@ sealed class SettingsForm : Form
         base.OnFormClosed(e);
     }
 
+    // Dragging a row inside the list moves it; dropping files anywhere adds them.
+    sealed class DragRow { public int Index; }
+
     void OnDragEnter(object sender, DragEventArgs e)
     {
-        e.Effect = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        if (e.Data.GetDataPresent(typeof(DragRow))) e.Effect = DragDropEffects.Move;
+        else e.Effect = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+    }
+
+    // The row under the mouse while a row is dragged: highlighted, and scrolled into view near the edges.
+    void OnListDragOver(object sender, DragEventArgs e)
+    {
+        OnDragEnter(sender, e);
+        if (!e.Data.GetDataPresent(typeof(DragRow))) return;
+        int target = DropIndex(e);
+        for (int k = 0; k < list.Items.Count; k++)
+        {
+            Color c = k == target ? SystemColors.ControlLight : list.BackColor;
+            if (list.Items[k].BackColor != c) list.Items[k].BackColor = c;
+        }
+        if (target >= 0) list.EnsureVisible(target);
+    }
+
+    void ClearDropHighlight()
+    {
+        foreach (ListViewItem it in list.Items) if (it.BackColor != list.BackColor) it.BackColor = list.BackColor;
+    }
+
+    // The row under the mouse, or the last row when below the rows.
+    int DropIndex(DragEventArgs e)
+    {
+        Point p = list.PointToClient(new Point(e.X, e.Y));
+        ListViewItem it = list.GetItemAt(8, p.Y);
+        if (it != null) return it.Index;
+        return list.Items.Count - 1;
     }
 
     void OnDragDrop(object sender, DragEventArgs e)
     {
+        if (e.Data.GetDataPresent(typeof(DragRow)))
+        {
+            ClearDropHighlight();
+            int from = ((DragRow)e.Data.GetData(typeof(DragRow))).Index;
+            int to = DropIndex(e);
+            if (from < 0 || from >= work.Count || to < 0 || to == from) return;
+            Entry moved = work[from];
+            work.RemoveAt(from);
+            work.Insert(Math.Min(to, work.Count), moved);
+            Refresh(work.IndexOf(moved));
+            return;
+        }
         string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
         if (files == null || files.Length == 0) return;
         foreach (string f in files) AddFile(f);
