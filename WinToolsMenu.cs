@@ -599,7 +599,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.18";
+    const string AppVersion = "1.0.19";
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -618,6 +618,13 @@ sealed class MenuHost : Form
     [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(System.Drawing.Point p);
     [DllImport("user32.dll")] static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
+    delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc proc, IntPtr lParam);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
+    [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId")] static extern uint GetWindowPid(IntPtr hwnd, out uint pid);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd, int cmd);
 
     static readonly Point Parked = new Point(-32000, -32000);
 
@@ -968,7 +975,92 @@ sealed class MenuHost : Form
         {
             string dir = File.Exists(target) ? Path.GetDirectoryName(target) : null;
             Start(target, args, dir, true);
+            if (target.StartsWith("ms-settings:", StringComparison.OrdinalIgnoreCase)) BringSettingsForward();
         }
+    }
+
+    // A Settings window that is already open but minimized stays minimized when a settings page is opened
+    // in it. For a few seconds after starting a settings page, restore the Settings window and bring it forward.
+    static void BringSettingsForward()
+    {
+        int ticks = 0;
+        System.Windows.Forms.Timer t = new System.Windows.Forms.Timer();
+        t.Interval = 250;
+        t.Tick += delegate
+        {
+            ticks++;
+            IntPtr w = IntPtr.Zero;
+            try { w = SettingsWindow(); } catch (Exception) { }
+            if (w != IntPtr.Zero)
+            {
+                if (IsIconic(w)) ShowWindow(w, 9); // SW_RESTORE
+                if (GetForegroundWindow() != w) ForceForeground(w);
+            }
+            bool done = w != IntPtr.Zero && !IsIconic(w) && GetForegroundWindow() == w;
+            if (done || ticks >= 20)
+            {
+                t.Stop();
+                t.Dispose();
+            }
+        };
+        t.Start();
+    }
+
+    static void ForceForeground(IntPtr hwnd)
+    {
+        uint fgThread = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
+        uint me = GetCurrentThreadId();
+        bool attached = fgThread != 0 && fgThread != me && AttachThreadInput(me, fgThread, true);
+        SetForegroundWindow(hwnd);
+        if (attached) AttachThreadInput(me, fgThread, false);
+    }
+
+    // The frame window of the Settings app (SystemSettings.exe), or zero. Its content window (CoreWindow) is a child
+    // of the frame while shown, and a separate top-level window with the same title while minimized.
+    static IntPtr SettingsWindow()
+    {
+        Process[] ps = Process.GetProcessesByName("SystemSettings");
+        if (ps.Length == 0) return IntPtr.Zero;
+        List<uint> pids = new List<uint>();
+        foreach (Process p in ps) { pids.Add((uint)p.Id); p.Dispose(); }
+
+        List<IntPtr> frames = new List<IntPtr>();
+        List<string> titles = new List<string>();
+        EnumWindows(delegate(IntPtr h, IntPtr l)
+        {
+            StringBuilder cls = new StringBuilder(256);
+            GetClassName(h, cls, 256);
+            string c = cls.ToString();
+            if (c == "ApplicationFrameWindow") frames.Add(h);
+            else if (c == "Windows.UI.Core.CoreWindow")
+            {
+                uint pid;
+                GetWindowPid(h, out pid);
+                if (pids.Contains(pid))
+                {
+                    StringBuilder text = new StringBuilder(256);
+                    GetWindowText(h, text, 256);
+                    if (text.Length > 0) titles.Add(text.ToString());
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+
+        foreach (IntPtr f in frames)
+        {
+            IntPtr core = FindWindowEx(f, IntPtr.Zero, "Windows.UI.Core.CoreWindow", null);
+            if (core == IntPtr.Zero) continue;
+            uint pid;
+            GetWindowPid(core, out pid);
+            if (pids.Contains(pid)) return f;
+        }
+        foreach (IntPtr f in frames)
+        {
+            StringBuilder text = new StringBuilder(256);
+            GetWindowText(f, text, 256);
+            if (text.Length > 0 && titles.Contains(text.ToString())) return f;
+        }
+        return IntPtr.Zero;
     }
 
     static void Start(string file, string args, string dir, bool shell)
