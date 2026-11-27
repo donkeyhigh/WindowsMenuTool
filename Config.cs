@@ -201,6 +201,8 @@ static class Config
         l.Add(D("sysdm", "System Properties (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false));
         l.Add(D("bluetooth", "Add Bluetooth Device (DevicePairingWizard)", "{system}\\DevicePairingWizard.exe", "", "B", false));
         l.Add(D("reliability", "Reliability Monitor (perfmon /rel)", "{system}\\perfmon.exe", "/rel", "L", false));
+        l.Add(D("resmon", "Resource Monitor (resmon)", "{system}\\resmon.exe", "", "V", false));
+        l.Add(D("control", "Classic Control Panel (control)", "{system}\\control.exe", "", "Z", false));
         return l;
     }
 

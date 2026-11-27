@@ -44,6 +44,8 @@ BUILT-IN SHORTCUTS (press the letter shown underlined)
   K  System Properties (sysdm.cpl)
   B  Add Bluetooth Device (DevicePairingWizard)
   L  Reliability Monitor (perfmon /rel)
+  V  Resource Monitor (resmon)
+  Z  Classic Control Panel (control)
   If one of your own items already uses one of these letters, the new item
   gets another free letter.
 

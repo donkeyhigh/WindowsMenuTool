@@ -36,7 +36,7 @@ sealed partial class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.29";   // also in VERSION
+    const string AppVersion = "1.0.30";   // also in VERSION
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
