@@ -166,43 +166,53 @@ static class Config
         new string[] { "reliability", "Reliability Monitor" },
     };
 
+    // Unticked by default (in the list, not in the menu).
+    static Entry Off(Entry e)
+    {
+        e.Hidden = true;
+        return e;
+    }
+
+    // The built-in items in their default order, letters and ticks.
     public static List<Entry> Defaults()
     {
-        List<Entry> l = new List<Entry>();
-        l.Add(D("firewall", "Firewall (firewall.cpl)", "{system}\\control.exe", "firewall.cpl", "F", false));
-        l.Add(D("appwiz", "Add or remove programs (appwiz.cpl)", "{system}\\control.exe", "appwiz.cpl", "R", false));
-        l.Add(D("ncpa", "Advanced network settings (ncpa.cpl)", "{system}\\control.exe", "ncpa.cpl", "W", false));
-        l.Add(D("taskmgr", "Task Manager (taskmgr)", "{system}\\taskmgr.exe", "", "T", false));
-        l.Add(D("devmgmt", "Device Manager (devmgmt.msc)", "{system}\\devmgmt.msc", "", "G", false));
-        l.Add(D("compmgmt", "Computer Management (compmgmt.msc)", "{system}\\compmgmt.msc", "", "M", false));
-        l.Add(D("mmsys", "Sounds (mmsys.cpl)", "{system}\\control.exe", "mmsys.cpl", "S", false));
-        l.Add(D("notepad", "Notepad (notepad)", "{system}\\notepad.exe", "", "E", false));
-        l.Add(D("npp", "Notepad++ (notepad++)", "{programfiles}\\Notepad++\\notepad++.exe", "", "A", false));
-        l.Add(D("appdata", "%appdata%", "{windows}\\explorer.exe", "\"{appdata}\"", "D", false));
-        l.Add(D("localappdata", "%localappdata%", "{windows}\\explorer.exe", "\"{localappdata}\"", "C", false));
-        l.Add(D("startup", "Startup folder (shell:startup)", "{windows}\\explorer.exe", "shell:startup", "U", false));
         // Consoles in the folder under the mouse. {folder} is that folder, {folderps} the same for a PowerShell '...' string.
         // The folder goes in the arguments: an elevated program ignores the working directory it is given.
-        // The admin versions are shown by default; the normal ones are in the list, unticked.
         const string CmdArgs = "/k cd /d \"{folder}\"";
         const string PsArgs = "-NoExit -Command \"Set-Location -LiteralPath '{folderps}'\"";
         const string WtArgs = "-d \"{folder}\"";
         string cmd = "{system}\\cmd.exe", ps = "{system}\\WindowsPowerShell\\v1.0\\powershell.exe", wt = "{localappdata}\\Microsoft\\WindowsApps\\wt.exe";
-        l.Add(ConsoleEntry("cmdadmin", "Open CMD here (admin)", cmd, CmdArgs, "O", true, false));
-        l.Add(ConsoleEntry("cmd", "Open CMD here", cmd, CmdArgs, "N", false, true));
-        l.Add(ConsoleEntry("pwshadmin", "Open PowerShell here (admin)", ps, PsArgs, "P", true, false));
-        l.Add(ConsoleEntry("pwsh", "Open PowerShell here", ps, PsArgs, "H", false, true));
+
+        List<Entry> l = new List<Entry>();
+        // Ticked
+        l.Add(D("firewall", "Firewall (firewall.cpl)", "{system}\\control.exe", "firewall.cpl", "F", false));
+        l.Add(D("appwiz", "Add or remove programs (appwiz.cpl)", "{system}\\control.exe", "appwiz.cpl", "R", false));
+        l.Add(D("ncpa", "Advanced network settings (ncpa.cpl)", "{system}\\control.exe", "ncpa.cpl", "W", false));
+        l.Add(D("bluetooth", "Add Bluetooth Device (DevicePairingWizard)", "{system}\\DevicePairingWizard.exe", "", "B", false));
+        l.Add(D("mmsys", "Sounds (mmsys.cpl)", "{system}\\control.exe", "mmsys.cpl", "S", false));
+        l.Add(ConsoleEntry("cmdadmin", "Open CMD here (admin)", cmd, CmdArgs, "N", true, false));
+        l.Add(ConsoleEntry("pwshadmin", "Open PowerShell here (admin)", ps, PsArgs, "H", true, false));
         l.Add(ConsoleEntry("wtadmin", "Open Terminal here (admin)", wt, WtArgs, "I", true, false));
-        l.Add(ConsoleEntry("wt", "Open Terminal here", wt, WtArgs, "J", false, true));
+        l.Add(Off(D("notepad", "Notepad (notepad)", "{system}\\notepad.exe", "", "E", false)));
+        l.Add(D("npp", "Notepad++ (notepad++)", "{programfiles}\\Notepad++\\notepad++.exe", "", "A", false));
         l.Add(D("godmode", "God Mode", "{windows}\\explorer.exe", "shell:::{ED7BA470-8E54-465E-825C-99712043E01C}", "Q", false));
+        l.Add(D("control", "Classic Control Panel (control)", "{system}\\control.exe", "", "Z", false));
         // Bare name: ShellExecute finds it in System32 or, on newer Windows 11, as an app alias.
         l.Add(D("sandbox", "Windows Sandbox (WindowsSandbox)", "WindowsSandbox.exe", "", "X", false));
-        l.Add(D("about", "System, About (ms-settings:about)", "ms-settings:about", "", "Y", false));
-        l.Add(D("sysdm", "System Properties (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false));
-        l.Add(D("bluetooth", "Add Bluetooth Device (DevicePairingWizard)", "{system}\\DevicePairingWizard.exe", "", "B", false));
         l.Add(D("reliability", "Reliability Monitor (perfmon /rel)", "{system}\\perfmon.exe", "/rel", "L", false));
         l.Add(D("resmon", "Resource Monitor (resmon)", "{system}\\resmon.exe", "", "V", false));
-        l.Add(D("control", "Classic Control Panel (control)", "{system}\\control.exe", "", "Z", false));
+        l.Add(D("devmgmt", "Device Manager (devmgmt.msc)", "{system}\\devmgmt.msc", "", "G", false));
+        l.Add(D("startup", "Startup folder (shell:startup)", "{windows}\\explorer.exe", "shell:startup", "U", false));
+        l.Add(D("appdata", "%appdata%", "{windows}\\explorer.exe", "\"{appdata}\"", "D", false));
+        l.Add(D("localappdata", "%localappdata%", "{windows}\\explorer.exe", "\"{localappdata}\"", "C", false));
+        // Unticked
+        l.Add(Off(D("sysdm", "System Properties (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false)));
+        l.Add(Off(D("about", "System, About (ms-settings:about)", "ms-settings:about", "", "Y", false)));
+        l.Add(Off(D("taskmgr", "Task Manager (taskmgr)", "{system}\\taskmgr.exe", "", "T", false)));
+        l.Add(ConsoleEntry("cmd", "Open CMD here", cmd, CmdArgs, "O", false, true));
+        l.Add(ConsoleEntry("pwsh", "Open PowerShell here", ps, PsArgs, "P", false, true));
+        l.Add(Off(D("compmgmt", "Computer Management (compmgmt.msc)", "{system}\\compmgmt.msc", "", "M", false)));
+        l.Add(ConsoleEntry("wt", "Open Terminal here", wt, WtArgs, "J", false, true));
         return l;
     }
 

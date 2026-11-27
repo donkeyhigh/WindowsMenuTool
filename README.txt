@@ -20,32 +20,35 @@ INSTALL
 
 BUILT-IN SHORTCUTS (press the letter shown underlined)
   The Run command (Win+R) is shown in parentheses after the name.
+  Shown in the menu:
   F  Firewall (firewall.cpl)
   R  Add or remove programs (appwiz.cpl)
   W  Advanced network settings (ncpa.cpl)
-  T  Task Manager (taskmgr)
-  G  Device Manager (devmgmt.msc)
-  M  Computer Management (compmgmt.msc)
-  S  Sounds (mmsys.cpl)
-  E  Notepad (notepad)
-  A  Notepad++ (notepad++) - offers to install it if it is missing
-  D  %appdata% folder
-  C  %localappdata% folder
-  U  Startup folder (shell:startup)
-  O  Open CMD here (admin)              N  Open CMD here
-  P  Open PowerShell here (admin)       H  Open PowerShell here
-  I  Open Terminal here (admin)         J  Open Terminal here
-     "Here" is the Explorer folder under the mouse (or the desktop). The
-     administrator versions are shown; the normal ones are in Custom Shortcuts,
-     unticked - tick them to show them too.
-  Q  God Mode (all settings in one folder)
-  X  Windows Sandbox (WindowsSandbox) - Pro/Enterprise/Education, turned on
-  Y  System, About (ms-settings:about)
-  K  System Properties (sysdm.cpl)
   B  Add Bluetooth Device (DevicePairingWizard)
+  S  Sounds (mmsys.cpl)
+  N  Open CMD here (admin)
+  H  Open PowerShell here (admin)
+  I  Open Terminal here (admin)
+  A  Notepad++ (notepad++) - offers to install it if it is missing
+  Q  God Mode (all settings in one folder)
+  Z  Classic Control Panel (control)
+  X  Windows Sandbox (WindowsSandbox) - Pro/Enterprise/Education, turned on
   L  Reliability Monitor (perfmon /rel)
   V  Resource Monitor (resmon)
-  Z  Classic Control Panel (control)
+  G  Device Manager (devmgmt.msc)
+  U  Startup folder (shell:startup)
+  D  %appdata% folder
+  C  %localappdata% folder
+  In Custom Shortcuts, unticked (tick them to show them in the menu):
+  E  Notepad (notepad)
+  K  System Properties (sysdm.cpl)
+  Y  System, About (ms-settings:about)
+  T  Task Manager (taskmgr)
+  O  Open CMD here               P  Open PowerShell here
+  M  Computer Management (compmgmt.msc)
+  J  Open Terminal here
+  "Here" is the Explorer folder under the mouse (or the desktop). The (admin)
+  versions run as administrator; Windows asks first.
   If one of your own items already uses one of these letters, the new item
   gets another free letter.
 
