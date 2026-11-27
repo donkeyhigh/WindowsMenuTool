@@ -29,6 +29,7 @@ Read only the file for the area you change; the list below says what is where.
 | `update.ps1` / `update.cmd` | Manual update; copied into the install folder |
 | `uninstall.ps1` / `uninstall.cmd`, `WinTools.ico`, `VERSION`, `README.md`, `LICENSE` (MIT) | |
 | `screenshots/` | Images shown in README.md (not installed, not in the release zip) |
+| `.github/workflows/release.yml`, `.github/release-notes.md` | Makes a GitHub Release (started by hand); release text, `{version}` is filled in |
 
 Settings live in `%LOCALAPPDATA%\WinTools\menu.json`.
 
@@ -62,6 +63,8 @@ Settings live in `%LOCALAPPDATA%\WinTools\menu.json`.
 
 ## Releases
 - Keep `README.md` in step with what the program does (built-in list, buttons, behaviour).
-- A GitHub Release is made for bigger versions only, when the owner asks: tag `vX.Y.Z` on the commit, attach
-  `WinToolsMenu-X.Y.Z.zip` with the files needed to install (all `.cs`, `*.ps1`, `*.cmd`, `WinTools.ico`, `VERSION`,
-  `README.md`, `LICENSE`; not `CLAUDE.md`). Installed menus update from `main` either way.
+- A GitHub Release is made for bigger versions only, when the owner asks. Update `.github/release-notes.md` (the
+  "New since" part), push, then run the `Release` workflow (`release.yml`, workflow_dispatch, e.g. with the GitHub
+  tool that runs workflows). It tags `vX.Y.Z` (from `VERSION`) on main and attaches `WinToolsMenu-X.Y.Z.zip` (all
+  `.cs`, `*.ps1`, `*.cmd`, `WinTools.ico`, `VERSION`, `README.md`, `LICENSE`). Pushing tags from a cloud session
+  fails, so do not tag by hand. Installed menus update from `main` either way.

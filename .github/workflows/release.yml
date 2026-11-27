@@ -1,0 +1,32 @@
+# Makes a GitHub Release for the version in VERSION on main. Started by hand (Actions > Release > Run workflow).
+# Installed menus do not use releases; they update from main.
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: v
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Build zip
+        run: |
+          zip "WinToolsMenu-${{ steps.v.outputs.version }}.zip" *.cs *.ps1 *.cmd WinTools.ico VERSION README.md LICENSE
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          sed "s/{version}/$VERSION/g" .github/release-notes.md > notes.md
+          gh release create "v$VERSION" "WinToolsMenu-$VERSION.zip" \
+            --target "$GITHUB_SHA" --title "WinTools Menu $VERSION" --notes-file notes.md --latest
