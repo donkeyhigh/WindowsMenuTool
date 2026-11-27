@@ -599,7 +599,8 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.21";
+    const string AppVersion = "1.0.22";
+    public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawRoot = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/";
@@ -671,7 +672,7 @@ sealed class MenuHost : Form
         timer.Tick += delegate { OnTimer(); };
 
         tray.Icon = Dialogs.AppIcon(SystemInformation.SmallIconSize);
-        tray.Text = "WinTools Menu (" + Config.Hotkey + ")";
+        tray.Text = "WinTools Menu " + AppVersion + " (" + Config.Hotkey + ")";
         tray.Visible = true;
         ContextMenuStrip cm = new ContextMenuStrip();
         cm.Items.Add("Custom shortcuts (" + Config.Hotkey + " twice)", null, delegate { ShowSettings(); });
@@ -720,7 +721,7 @@ sealed class MenuHost : Form
         {
             hotkeyMods = mods;
             hotkeyKey = key;
-            tray.Text = "WinTools Menu (" + text + ")";
+            tray.Text = "WinTools Menu " + AppVersion + " (" + text + ")";
             return true;
         }
         RegisterOwnHotkey(hotkeyMods, hotkeyKey);
@@ -1679,7 +1680,7 @@ sealed class SettingsForm : Form
     {
         this.host = host;
         work = entries;
-        Text = "WinTools Custom Shortcuts";
+        Text = "WinTools Custom Shortcuts - version " + MenuHost.Version;
         Icon = Dialogs.AppIcon(new Size(32, 32));
         Font = new Font("Segoe UI", 9.5f);
         StartPosition = FormStartPosition.CenterScreen;

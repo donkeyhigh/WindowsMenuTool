@@ -77,6 +77,8 @@ UPDATES
   the menu restarts by itself. "Skip this version" hides that version.
   "Check for updates" (in Custom Shortcuts, or in the tray icon's menu) checks
   right away, also finds a version you skipped, and offers to install it.
+  The installed version is shown in the Custom Shortcuts title bar and when you
+  hover over the tray icon.
 
 UNINSTALL
   Double-click uninstall.cmd. It stops the menu and removes it from Startup.
