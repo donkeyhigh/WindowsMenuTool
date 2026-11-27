@@ -34,9 +34,10 @@ sealed partial class MenuHost : Form
     const int PadWidth = 440;
     const int HeaderHeight = 34;   // top of the list, below the hint
     const int PadTop = 34;         // top of the text pad (its title sits above it)
+    const int FindRow = 32;        // room taken from the top of the pad while the search box is open
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.31";   // also in VERSION
+    const string AppVersion = "1.0.32";   // also in VERSION
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
@@ -78,6 +79,9 @@ sealed partial class MenuHost : Form
     readonly Label title = new Label();
     readonly TextBox pad = new TextBox();
     readonly Label padStatus = new Label();
+    readonly TextBox findBox = new TextBox();
+    readonly Label findStatus = new Label();
+    bool findOpen;
     SettingsForm settings;
     bool open;
     int hover = -1;
@@ -206,8 +210,12 @@ sealed partial class MenuHost : Form
         ClientSize = new Size(listW + ListGap + PadWidth + 8, height);
         int px = listW + ListGap;
         title.Location = new Point(px, 8);
-        pad.Location = new Point(px, PadTop);
-        pad.Size = new Size(PadWidth, height - PadTop - 34);
+        int padTop = PadTop + (findOpen ? FindRow : 0);
+        pad.Location = new Point(px, padTop);
+        pad.Size = new Size(PadWidth, height - padTop - 34);
+        findBox.Location = new Point(px, PadTop);
+        findBox.Width = PadWidth - 100;
+        findStatus.Location = new Point(px + PadWidth - 92, PadTop + 5);
         padStatus.Location = new Point(px, height - 26);
     }
 
@@ -227,6 +235,7 @@ sealed partial class MenuHost : Form
         pad.BackColor = Color.FromArgb(31, 41, 55);
         pad.ForeColor = Color.White;
         pad.Font = new Font("Segoe UI", 10f);
+        pad.HideSelection = false;   // keep the search match visible while the search box has the focus
         pad.TextChanged += delegate
         {
             lastKey = DateTime.Now;
@@ -240,6 +249,98 @@ sealed partial class MenuHost : Form
         padStatus.AutoSize = true;
         Controls.Add(padStatus);
 
+        findBox.BorderStyle = BorderStyle.FixedSingle;
+        findBox.BackColor = Color.FromArgb(31, 41, 55);
+        findBox.ForeColor = Color.White;
+        findBox.Font = new Font("Segoe UI", 10f);
+        findBox.Visible = false;
+        findBox.TextChanged += delegate { FindFirst(); };
+        Controls.Add(findBox);
+
+        findStatus.ForeColor = Color.FromArgb(156, 163, 175);
+        findStatus.Font = headFont;
+        findStatus.AutoSize = true;
+        findStatus.Visible = false;
+        Controls.Add(findStatus);
+    }
+
+    // Ctrl+F in the pad: a search box above the text. Esc closes it and leaves the caret on the match.
+    void OpenFind()
+    {
+        if (!findOpen)
+        {
+            findOpen = true;
+            findBox.Visible = true;
+            findStatus.Visible = true;
+            LayoutMenu();
+        }
+        findBox.Focus();
+        findBox.SelectAll();
+        if (findBox.TextLength > 0) FindFirst();
+    }
+
+    void CloseFind(bool focusPad)
+    {
+        if (!findOpen) return;
+        findOpen = false;
+        findBox.Visible = false;
+        findStatus.Visible = false;
+        LayoutMenu();
+        if (focusPad) pad.Focus();
+    }
+
+    // Start of every match of the search text in the pad, ignoring case.
+    List<int> FindMatches()
+    {
+        List<int> found = new List<int>();
+        string q = findBox.Text;
+        if (q.Length == 0) return found;
+        string text = pad.Text;
+        int i = text.IndexOf(q, StringComparison.OrdinalIgnoreCase);
+        while (i >= 0)
+        {
+            found.Add(i);
+            if (i + q.Length >= text.Length) break;
+            i = text.IndexOf(q, i + q.Length, StringComparison.OrdinalIgnoreCase);
+        }
+        return found;
+    }
+
+    void FindFirst()
+    {
+        List<int> found = FindMatches();
+        ShowMatch(found, found.Count > 0 ? 0 : -1);
+    }
+
+    // Enter: the next match after the current selection, Shift+Enter: the one before. Both wrap around.
+    void FindStep(bool forward)
+    {
+        List<int> found = FindMatches();
+        if (found.Count == 0) { ShowMatch(found, -1); return; }
+        int at = pad.SelectionStart;
+        int index;
+        if (forward)
+        {
+            index = 0;
+            while (index < found.Count && found[index] <= at) index++;
+            if (index == found.Count) index = 0;
+        }
+        else
+        {
+            index = found.Count - 1;
+            while (index >= 0 && found[index] >= at) index--;
+            if (index < 0) index = found.Count - 1;
+        }
+        ShowMatch(found, index);
+    }
+
+    void ShowMatch(List<int> found, int index)
+    {
+        if (findBox.TextLength == 0) { findStatus.Text = ""; return; }
+        if (index < 0) { findStatus.Text = "No matches"; return; }
+        pad.Select(found[index], findBox.TextLength);
+        pad.ScrollToCaret();
+        findStatus.Text = (index + 1) + " of " + found.Count;
     }
 
     protected override void WndProc(ref Message m)
@@ -301,6 +402,7 @@ sealed partial class MenuHost : Form
         hover = -1;
         top = 0;
         timer.Stop();
+        CloseFind(false);
         Location = Parked;
         // The parked window would otherwise keep the keyboard. Give it back to the window that had it.
         if (giveBackFocus) GiveFocusTo(previousForeground);
@@ -342,9 +444,21 @@ sealed partial class MenuHost : Form
         base.OnKeyDown(e);
         if (!open) return;
         lastKey = DateTime.Now;
+        if (findBox.Focused)
+        {
+            // The search box: Esc closes only the search, Enter steps through the matches, letters are text.
+            if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; CloseFind(true); }
+            else if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; FindStep(!e.Shift); }
+            else if (e.KeyCode == Keys.F && e.Control) { e.SuppressKeyPress = true; findBox.SelectAll(); }
+            return;
+        }
         if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; CloseMenu(); return; }
         // Typing in the pad: letters are text, not shortcuts.
-        if (pad.Focused) return;
+        if (pad.Focused)
+        {
+            if (e.KeyCode == Keys.F && e.Control) { e.SuppressKeyPress = true; OpenFind(); }
+            return;
+        }
         if (e.KeyCode == Keys.Down) { e.SuppressKeyPress = true; ScrollBy(1); return; }
         if (e.KeyCode == Keys.Up) { e.SuppressKeyPress = true; ScrollBy(-1); return; }
         if (e.KeyCode == Keys.PageDown) { e.SuppressKeyPress = true; ScrollBy(VisibleRows()); return; }

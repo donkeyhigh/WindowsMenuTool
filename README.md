@@ -30,6 +30,7 @@ runs when you sign in. Nothing is downloaded, except when you answer Yes to inst
 | Esc / click away | Close |
 | Mouse | Click an item to run it |
 | Win+Alt+X again | Open Custom Shortcuts while the menu is open |
+| Ctrl+F in the text pad | Search the text: Enter next match, Shift+Enter previous, Esc closes the search |
 
 ## Built-in shortcuts
 
