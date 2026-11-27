@@ -54,6 +54,11 @@ static class Config
                 s.Args = d.Args;
                 s.NeedsFolder = d.NeedsFolder;
                 s.Admin = d.Admin;
+                // A built-in still under a name this program used to give it gets the current name.
+                foreach (string[] r in RenamedDefaults)
+                {
+                    if (s.Id == r[0] && s.Title == r[1]) s.Title = d.Title;
+                }
                 known = true;
                 break;
             }
@@ -140,6 +145,12 @@ static class Config
         return e;
     }
 
+    // Built-in names that changed: { id, old name }. Users who kept the old name get the new one.
+    static readonly string[][] RenamedDefaults =
+    {
+        new string[] { "sysdm", "Systemegenskaper (sysdm.cpl)" },
+    };
+
     public static List<Entry> Defaults()
     {
         List<Entry> l = new List<Entry>();
@@ -172,7 +183,7 @@ static class Config
         // Bare name: ShellExecute finds it in System32 or, on newer Windows 11, as an app alias.
         l.Add(D("sandbox", "Windows Sandbox", "WindowsSandbox.exe", "", "X", false));
         l.Add(D("about", "System, About", "ms-settings:about", "", "Y", false));
-        l.Add(D("sysdm", "Systemegenskaper (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false));
+        l.Add(D("sysdm", "System Properties (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false));
         l.Add(D("bluetooth", "Add Bluetooth Device", "{system}\\DevicePairingWizard.exe", "", "B", false));
         l.Add(D("reliability", "Reliability Monitor", "{system}\\perfmon.exe", "/rel", "L", false));
         return l;

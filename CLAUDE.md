@@ -2,6 +2,9 @@
 
 A keyboard menu for Windows 11 (Win+Alt+X). C# split into files by area, compiled together on the user's PC by install.ps1.
 The owner writes in Norwegian; answer in Norwegian. Code, comments, commit messages and README are in English.
+**Everything the program shows is in English**: item names, messages, buttons. When the owner gives a name or text
+in Norwegian, that is a slip: translate it to English (e.g. "Systemegenskaper" -> "System Properties").
+If a built-in item's default name changes, add the old name to `Config.RenamedDefaults` so saved settings follow.
 Not released yet: only the owner uses it, on their own PCs. Compatibility with old versions only has to cover
 updating those PCs (from 1.0.20 and newer); no one else has an old version.
 

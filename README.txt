@@ -16,7 +16,31 @@ I made this for myself. You are welcome to use it if you want to, but:
 INSTALL
   Double-click install.cmd. It compiles the program on your PC (csc.exe comes with Windows),
   starts it, and adds it to Startup so it runs when you sign in. Nothing is downloaded,
-  except when you answer Yes to install a missing tool (see MISSING TOOLS
+  except when you answer Yes to install a missing tool (see MISSING TOOLS).
+
+BUILT-IN SHORTCUTS (press the letter shown underlined)
+  F  Firewall                       R  Add or remove programs
+  W  Advanced network settings      T  Task Manager
+  G  Device Manager                 M  Computer Management
+  S  Sounds                         E  Notepad
+  A  Notepad++ (offers install)     D  %appdata% folder
+  C  %localappdata% folder          U  Startup folder (shell:startup)
+  O  Open CMD here as administrator          N  Open CMD here
+  P  Open PowerShell here as administrator   H  Open PowerShell here
+  I  Open Terminal here as administrator     J  Open Terminal here
+     "Here" is the Explorer folder under the mouse (or the desktop). The
+     administrator versions are shown; the normal ones are in Custom Shortcuts,
+     unticked - tick them to show them too.
+  Q  God Mode (all settings in one folder)
+  X  Windows Sandbox (Pro/Enterprise/Education, the feature must be turned on)
+  Y  System, About (Settings > System > About)
+  K  System Properties (sysdm.cpl)
+  B  Add Bluetooth Device (the Add a device wizard)
+  L  Reliability Monitor (perfmon /rel)
+  If one of your own items already uses one of these letters, the new item
+  gets another free letter.
+
+MISSING TOOLS
   Notepad++   If it is not installed, the menu asks if you want it. Yes downloads
               and installs it automatically (winget, or the official installer
               from GitHub if winget is missing). Windows asks for permission.
