@@ -329,7 +329,9 @@ static class Installers
     public static void OfferNotepadPP()
     {
         if (!Ask("Notepad++ is not installed.\n\nInstall it now? It is downloaded from the official source and installed "
-            + "automatically. Windows asks for permission first.")) return;
+            + "automatically. Windows asks for permission first.\n\n"
+            + "Of course you can also install it yourself if you would rather do that: this shortcut finds it in the "
+            + "usual folder, or you can add it to the list in Custom Shortcuts.")) return;
         InBackground(delegate
         {
             if (WingetPath() != null) Winget("Notepad++.Notepad++");
@@ -381,10 +383,39 @@ static class Installers
 
     // ---- Windows Sandbox / Sandboxie-Plus ----
 
+    // Sandboxie-Plus (SandMan.exe) or classic Sandboxie (SbieCtrl.exe) in the usual folders, Plus first. Null if none.
     public static string SandboxiePath()
     {
-        string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Sandboxie-Plus\\SandMan.exe");
-        return File.Exists(p) ? p : null;
+        string[] files = { "Sandboxie-Plus\\SandMan.exe", "Sandboxie\\SandMan.exe", "Sandboxie-Plus\\SbieCtrl.exe", "Sandboxie\\SbieCtrl.exe" };
+        foreach (string f in files)
+        {
+            foreach (Environment.SpecialFolder root in new Environment.SpecialFolder[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
+            {
+                string p = Path.Combine(Environment.GetFolderPath(root), f);
+                if (File.Exists(p)) return p;
+            }
+        }
+        return null;
+    }
+
+    // "Sandboxie Plus" for SandMan.exe, "Sandboxie" for the classic SbieCtrl.exe.
+    public static string SandboxieName(string path)
+    {
+        return string.Equals(Path.GetFileName(path), "SandMan.exe", StringComparison.OrdinalIgnoreCase) ? "Sandboxie Plus" : "Sandboxie";
+    }
+
+    // One sentence on why Windows Sandbox does not start on this PC.
+    public static string WhyNoWindowsSandbox()
+    {
+        Cursor.Current = Cursors.WaitCursor;
+        bool home = IsHomeEdition();
+        int state = home ? 3 : SandboxFeatureState();
+        Cursor.Current = Cursors.Default;
+        if (home) return "Windows Sandbox does not work on this PC: Windows Home does not have it (it needs Pro, Enterprise or Education).";
+        if (state == 3) return "Windows Sandbox does not work on this PC: this Windows does not have it.";
+        if (state == 1) return "Windows Sandbox is turned on, but it only works after the PC has restarted.";
+        if (state == 2) return "Windows Sandbox is not turned on on this PC.";
+        return "Windows Sandbox was not found on this PC.";
     }
 
     // Windows Home is "Core..." in EditionID. Home has no Windows Sandbox.
@@ -438,7 +469,8 @@ static class Installers
     }
 
     // Windows Sandbox was not found. Explains why and offers what fits this PC.
-    public static void SandboxMissing()
+    // switchTo(name) is called on this thread when Sandboxie-Plus was installed, so the shortcut can be renamed.
+    public static void SandboxMissing(Action<string> switchTo)
     {
         Cursor.Current = Cursors.WaitCursor;
         bool home = IsHomeEdition();
@@ -451,7 +483,9 @@ static class Installers
                 : "This Windows does not support Windows Sandbox.";
             if (!Ask(why + " It needs Windows 11 Pro, Enterprise or Education.\n\n"
                 + "Install Sandboxie-Plus instead? It is free and runs programs in an isolated box. "
-                + "It is downloaded and installed automatically, and this shortcut then opens it.")) return;
+                + "It is downloaded and installed automatically, and this shortcut then opens it.\n\n"
+                + "Of course you can also install it yourself (or another sandbox program) and add it to the list in "
+                + "Custom Shortcuts if you would rather do that.")) return;
             if (WingetPath() == null)
             {
                 Tell("winget (App Installer) is missing, so Sandboxie-Plus cannot be installed automatically. "
@@ -465,6 +499,7 @@ static class Installers
                 string exe = SandboxiePath();
                 if (exe != null)
                 {
+                    if (switchTo != null) switchTo(SandboxieName(exe));
                     Open(exe, "");
                     return;
                 }
@@ -620,7 +655,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.25";
+    const string AppVersion = "1.0.26";
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
@@ -911,8 +946,17 @@ sealed class MenuHost : Form
     }
 
     // Windows Sandbox is WindowsSandbox.exe in System32 on older Windows 11, and an app on newer builds.
-    static void RunSandbox()
+    // Without it, an installed Sandboxie (Plus or classic) is used: the first time, the menu says so and renames the
+    // shortcut to Sandboxie / Sandboxie Plus. Once renamed, the shortcut opens Sandboxie even if Windows Sandbox appears.
+    void RunSandbox(Entry e)
     {
+        string sandboxie = Installers.SandboxiePath();
+        bool usesSandboxie = (e.Title ?? "").IndexOf("Sandboxie", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (usesSandboxie && sandboxie != null)
+        {
+            Start(sandboxie, "", null, true);
+            return;
+        }
         string exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsSandbox.exe");
         if (File.Exists(exe))
         {
@@ -926,13 +970,28 @@ sealed class MenuHost : Form
             Start(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), "shell:AppsFolder\\" + app, null, true);
             return;
         }
-        string sandboxie = Installers.SandboxiePath();
         if (sandboxie != null)
         {
+            string name = Installers.SandboxieName(sandboxie);
+            MessageBox.Show(Installers.WhyNoWindowsSandbox() + "\n\n"
+                + "But " + name + " is already installed here, so this shortcut now opens " + name + " instead. "
+                + "You can rename it or move it in Custom Shortcuts.", "WinTools", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            SwitchToSandboxie(e, name);
             Start(sandboxie, "", null, true);
             return;
         }
-        Installers.SandboxMissing();
+        Installers.SandboxMissing(delegate(string name)
+        {
+            try { BeginInvoke(new Action(delegate { SwitchToSandboxie(e, name); })); } catch (Exception) { }
+        });
+    }
+
+    void SwitchToSandboxie(Entry e, string name)
+    {
+        e.Title = name;
+        try { Config.Save(entries); } catch (Exception) { }
+        LayoutMenu();
+        Invalidate();
     }
 
     // The launch id (shell:AppsFolder\<id>) of an installed app whose id contains idPart or whose name is name.
@@ -959,11 +1018,11 @@ sealed class MenuHost : Form
     }
 
     // Runs one entry. Folder entries run in the folder under the mouse. Scripts run through their host.
-    static void RunEntry(Entry e, string folder)
+    void RunEntry(Entry e, string folder)
     {
         if (!e.Custom && e.Id == "sandbox")
         {
-            RunSandbox();
+            RunSandbox(e);
             return;
         }
         string target = Config.Expand(e.Target);

@@ -16,39 +16,19 @@ I made this for myself. You are welcome to use it if you want to, but:
 INSTALL
   Double-click install.cmd. It compiles the program on your PC (csc.exe comes with Windows),
   starts it, and adds it to Startup so it runs when you sign in. Nothing is downloaded,
-  except when you answer Yes to install a missing tool (see MISSING TOOLS).
-
-BUILT-IN SHORTCUTS (press the letter shown underlined)
-  F  Firewall                       R  Add or remove programs
-  W  Advanced network settings      T  Task Manager
-  G  Device Manager                 M  Computer Management
-  S  Sounds                         E  Notepad
-  A  Notepad++ (offers install)     D  %appdata% folder
-  C  %localappdata% folder          U  Startup folder (shell:startup)
-  O  Open CMD here as administrator          N  Open CMD here
-  P  Open PowerShell here as administrator   H  Open PowerShell here
-  I  Open Terminal here as administrator     J  Open Terminal here
-     "Here" is the Explorer folder under the mouse (or the desktop). The
-     administrator versions are shown; the normal ones are in Custom Shortcuts,
-     unticked - tick them to show them too.
-  Q  God Mode (all settings in one folder)
-  X  Windows Sandbox (Pro/Enterprise/Education, the feature must be turned on)
-  Y  System, About (Settings > System > About)
-  K  Systemegenskaper (sysdm.cpl)
-  B  Add Bluetooth Device (the Add a device wizard)
-  L  Reliability Monitor (perfmon /rel)
-  If one of your own items already uses one of these letters, the new item
-  gets another free letter.
-
-MISSING TOOLS
+  except when you answer Yes to install a missing tool (see MISSING TOOLS
   Notepad++   If it is not installed, the menu asks if you want it. Yes downloads
               and installs it automatically (winget, or the official installer
               from GitHub if winget is missing). Windows asks for permission.
   Sandbox     If Windows Sandbox is off, the menu offers to turn it on (Windows
               asks for permission, then the PC must restart). Windows Home has no
-              Windows Sandbox: the menu offers Sandboxie-Plus instead (installed
-              with winget), and the Sandbox item then opens Sandboxie-Plus.
-              If virtualization is off in the BIOS/UEFI, the menu says so.
+              Windows Sandbox. If Sandboxie (Plus or classic) is already installed
+              in the usual folder, the menu says so and the shortcut is renamed to
+              Sandboxie / Sandboxie Plus and opens it. Otherwise the menu offers to
+              install Sandboxie-Plus with winget. If virtualization is off in the
+              BIOS/UEFI, the menu says so.
+  Of course you can install these yourself if you would rather do that, and add
+  them (or any other program) to the list in Custom Shortcuts.
 
 USE
   Win+Alt+X          open the menu
