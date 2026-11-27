@@ -2,12 +2,14 @@
 // Win+Alt+X again while the menu is open opens Custom Shortcuts: untick to hide, rename, move, add files.
 // Two columns; a plain text pad on the right. RegisterHotKey (no keyboard hook).
 // Esc, a click outside (focus leaves the window), or 60 seconds without a key closes the menu.
-// C# 5 (csc.exe from .NET Framework 4). References: System.Windows.Forms, System.Drawing, System.Web.Extensions.
+// C# 5 (csc.exe from .NET Framework 4). References: System.Windows.Forms, System.Drawing, System.Web.Extensions, System.Management.
+// Resource: WinTools.ico (the program icon, also used for the tray and windows).
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Management;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -205,6 +207,7 @@ static class Config
         l.Add(D("about", "System, About", "ms-settings:about", "", "Y", false));
         l.Add(D("sysdm", "Systemegenskaper (sysdm.cpl)", "{system}\\control.exe", "sysdm.cpl", "K", false));
         l.Add(D("bluetooth", "Add Bluetooth Device", "{system}\\DevicePairingWizard.exe", "", "B", false));
+        l.Add(D("reliability", "Reliability Monitor", "{system}\\perfmon.exe", "/rel", "L", false));
         return l;
     }
 
@@ -220,8 +223,324 @@ static class Config
     }
 }
 
+// Offers to install missing tools: Notepad++ and Sandboxie-Plus with winget, Windows Sandbox as a Windows feature.
+// Nothing is downloaded or changed unless the user answers Yes. Long work runs on a background thread.
+static class Installers
+{
+    const string Caption = "WinTools";
+
+    static string WingetPath()
+    {
+        string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft\\WindowsApps\\winget.exe");
+        return File.Exists(p) ? p : null;
+    }
+
+    static bool Ask(string text)
+    {
+        return MessageBox.Show(text, Caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+    }
+
+    static void Tell(string text, MessageBoxIcon icon)
+    {
+        MessageBox.Show(text, Caption, MessageBoxButtons.OK, icon);
+    }
+
+    static void Open(string fileOrUrl, string args)
+    {
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo(fileOrUrl, args ?? "");
+            psi.UseShellExecute = true;
+            Process.Start(psi);
+        }
+        catch (Exception ex) { Tell(ex.Message, MessageBoxIcon.Warning); }
+    }
+
+    // Runs a program and waits for it. Returns its exit code, or -1 if it could not start (for example UAC was refused).
+    static int RunAndWait(string file, string args, bool elevate)
+    {
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo(file, args);
+            psi.UseShellExecute = true;
+            if (elevate) psi.Verb = "runas";
+            using (Process p = Process.Start(psi))
+            {
+                if (p == null) return -1;
+                p.WaitForExit();
+                return p.ExitCode;
+            }
+        }
+        catch (Exception) { return -1; }
+    }
+
+    static void InBackground(ThreadStart work)
+    {
+        Thread t = new Thread(delegate()
+        {
+            try { work(); }
+            catch (Exception ex) { Tell(ex.Message, MessageBoxIcon.Warning); }
+        });
+        t.IsBackground = true;
+        t.SetApartmentState(ApartmentState.STA);
+        t.Start();
+    }
+
+    // winget asks for admin rights itself when the installer needs them, and shows its progress in a console window.
+    static int Winget(string id)
+    {
+        return RunAndWait(WingetPath(), "install --id " + id + " -e --source winget --silent"
+            + " --accept-package-agreements --accept-source-agreements", false);
+    }
+
+    // ---- Notepad++ ----
+
+    public static string NotepadPPPath()
+    {
+        foreach (Environment.SpecialFolder f in new Environment.SpecialFolder[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
+        {
+            string p = Path.Combine(Environment.GetFolderPath(f), "Notepad++\\notepad++.exe");
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
+    public static void OfferNotepadPP()
+    {
+        if (!Ask("Notepad++ is not installed.\n\nInstall it now? It is downloaded from the official source and installed "
+            + "automatically. Windows asks for permission first.")) return;
+        InBackground(delegate
+        {
+            if (WingetPath() != null) Winget("Notepad++.Notepad++");
+            if (NotepadPPPath() == null) InstallNotepadPPFromGitHub();
+            string exe = NotepadPPPath();
+            if (exe != null)
+            {
+                Open(exe, "");
+                return;
+            }
+            if (Ask("Notepad++ was not installed.\n\nOpen the Notepad++ download page instead?"))
+                Open("https://notepad-plus-plus.org/downloads/", "");
+        });
+    }
+
+    // Without winget: the newest installer from the official GitHub releases, run silently (/S).
+    static void InstallNotepadPPFromGitHub()
+    {
+        System.Net.ServicePointManager.SecurityProtocol |= (System.Net.SecurityProtocolType)3072; // TLS 1.2
+        string arch = Environment.GetEnvironmentVariable("PROCESSOR_ARCHITEW6432") ?? Environment.GetEnvironmentVariable("PROCESSOR_ARCHITECTURE") ?? "";
+        string ending = string.Equals(arch, "ARM64", StringComparison.OrdinalIgnoreCase) ? ".Installer.arm64.exe"
+            : Environment.Is64BitOperatingSystem ? ".Installer.x64.exe" : ".Installer.exe";
+        string url = null;
+        using (System.Net.WebClient wc = new System.Net.WebClient())
+        {
+            wc.Headers.Add("User-Agent", "WinToolsMenu");
+            string json = wc.DownloadString("https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest");
+            Dictionary<string, object> release = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
+            System.Collections.IEnumerable assets = release.ContainsKey("assets") ? release["assets"] as System.Collections.IEnumerable : null;
+            if (assets == null) return;
+            foreach (object a in assets)
+            {
+                Dictionary<string, object> asset = a as Dictionary<string, object>;
+                if (asset == null) continue;
+                string name = asset["name"] as string;
+                if (name != null && name.EndsWith(ending, StringComparison.OrdinalIgnoreCase))
+                {
+                    url = asset["browser_download_url"] as string;
+                    break;
+                }
+            }
+            if (url == null) return;
+            string file = Path.Combine(Path.GetTempPath(), "npp-installer.exe");
+            wc.DownloadFile(url, file);
+            RunAndWait(file, "/S", true);
+            try { File.Delete(file); } catch (Exception) { }
+        }
+    }
+
+    // ---- Windows Sandbox / Sandboxie-Plus ----
+
+    public static string SandboxiePath()
+    {
+        string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Sandboxie-Plus\\SandMan.exe");
+        return File.Exists(p) ? p : null;
+    }
+
+    // Windows Home is "Core..." in EditionID. Home has no Windows Sandbox.
+    static bool IsHomeEdition()
+    {
+        try
+        {
+            object v = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "EditionID", null);
+            string id = v as string;
+            return id != null && id.StartsWith("Core", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception) { return false; }
+    }
+
+    // InstallState of the Windows Sandbox feature: 1 on, 2 off, 3 not available in this Windows, 0 unknown.
+    static int SandboxFeatureState()
+    {
+        try
+        {
+            using (ManagementObjectSearcher s = new ManagementObjectSearcher(
+                "SELECT InstallState FROM Win32_OptionalFeature WHERE Name='Containers-DisposableClientVM'"))
+            {
+                foreach (ManagementObject o in s.Get()) return Convert.ToInt32(o["InstallState"]);
+            }
+            return 3;
+        }
+        catch (Exception) { return 0; }
+    }
+
+    // True if virtualization is on in the BIOS/UEFI, or a hypervisor already runs (then the CPU reports it as off).
+    static bool VirtualizationOn()
+    {
+        try
+        {
+            using (ManagementObjectSearcher s = new ManagementObjectSearcher("SELECT HypervisorPresent FROM Win32_ComputerSystem"))
+            {
+                foreach (ManagementObject o in s.Get()) if (o["HypervisorPresent"] is bool && (bool)o["HypervisorPresent"]) return true;
+            }
+            using (ManagementObjectSearcher s = new ManagementObjectSearcher("SELECT VirtualizationFirmwareEnabled FROM Win32_Processor"))
+            {
+                foreach (ManagementObject o in s.Get()) if (o["VirtualizationFirmwareEnabled"] is bool && (bool)o["VirtualizationFirmwareEnabled"]) return true;
+            }
+            return false;
+        }
+        catch (Exception) { return true; }
+    }
+
+    static void OfferRestart(string text)
+    {
+        if (Ask(text + "\n\nRestart the PC now? Save your work first.")) Open("shutdown.exe", "/r /t 0");
+    }
+
+    // Windows Sandbox was not found. Explains why and offers what fits this PC.
+    public static void SandboxMissing()
+    {
+        Cursor.Current = Cursors.WaitCursor;
+        bool home = IsHomeEdition();
+        int state = home ? 3 : SandboxFeatureState();
+        Cursor.Current = Cursors.Default;
+
+        if (home || state == 3)
+        {
+            string why = home ? "Your Windows is a Home edition, which does not support Windows Sandbox."
+                : "This Windows does not support Windows Sandbox.";
+            if (!Ask(why + " It needs Windows 11 Pro, Enterprise or Education.\n\n"
+                + "Install Sandboxie-Plus instead? It is free and runs programs in an isolated box. "
+                + "It is downloaded and installed automatically, and this shortcut then opens it.")) return;
+            if (WingetPath() == null)
+            {
+                Tell("winget (App Installer) is missing, so Sandboxie-Plus cannot be installed automatically. "
+                    + "The download page opens now.", MessageBoxIcon.Information);
+                Open("https://sandboxie-plus.com/downloads/", "");
+                return;
+            }
+            InBackground(delegate
+            {
+                Winget("Sandboxie.Plus");
+                string exe = SandboxiePath();
+                if (exe != null)
+                {
+                    Open(exe, "");
+                    return;
+                }
+                if (Ask("Sandboxie-Plus was not installed.\n\nOpen the Sandboxie-Plus download page instead?"))
+                    Open("https://sandboxie-plus.com/downloads/", "");
+            });
+            return;
+        }
+        if (state == 1)
+        {
+            OfferRestart("Windows Sandbox is turned on, but Windows finishes setting it up when the PC restarts.");
+            return;
+        }
+        if (!VirtualizationOn())
+        {
+            Tell("Windows Sandbox needs virtualization, which is turned off in this PC's BIOS/UEFI.\n\n"
+                + "Restart into the BIOS/UEFI setup and turn on Intel VT-x (Intel Virtualization Technology) or AMD SVM. "
+                + "Then use this shortcut again.", MessageBoxIcon.Information);
+            return;
+        }
+        if (!Ask("Windows Sandbox is not turned on.\n\nTurn it on now? Windows asks for permission, then installs it. "
+            + "The PC must restart afterwards.")) return;
+        InBackground(delegate
+        {
+            string dism = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "dism.exe");
+            int code = RunAndWait(dism, "/online /enable-feature /featurename:Containers-DisposableClientVM /all /norestart", true);
+            if (code == 0 || code == 3010) OfferRestart("Windows Sandbox is turned on.");
+            else if (code == -1) Tell("Windows Sandbox was not turned on (permission was not given).", MessageBoxIcon.Information);
+            else Tell("Windows Sandbox could not be turned on (DISM error " + code + ").\n\n"
+                + "Try \"Turn Windows features on or off\" (optionalfeatures.exe) instead.", MessageBoxIcon.Warning);
+        });
+    }
+}
+
 static class Dialogs
 {
+    // The program icon (embedded WinTools.ico) at the given size, or the standard one if it is missing.
+    public static Icon AppIcon(Size size)
+    {
+        try
+        {
+            using (Stream st = typeof(Dialogs).Assembly.GetManifestResourceStream("WinTools.ico"))
+            {
+                if (st != null) return new Icon(st, size);
+            }
+        }
+        catch (Exception) { }
+        return SystemIcons.Application;
+    }
+
+    // Waits for one letter key for the entry. Returns "A".."Z", "" for no letter (Delete), or null if cancelled.
+    public static string PickLetter(IWin32Window owner, string title, string current)
+    {
+        using (Form f = new Form())
+        {
+            string result = null;
+            f.Text = "Change letter";
+            f.FormBorderStyle = FormBorderStyle.FixedDialog;
+            f.StartPosition = FormStartPosition.CenterParent;
+            f.MaximizeBox = false;
+            f.MinimizeBox = false;
+            f.ShowInTaskbar = false;
+            f.KeyPreview = true;
+            f.ClientSize = new Size(380, 110);
+            Label l = new Label();
+            l.Text = "Press the new letter for \"" + title + "\" (now: " + (string.IsNullOrEmpty(current) ? "none" : current) + ").\n"
+                + "If another item uses it, the two swap letters.\n"
+                + "Delete = no letter. Esc = cancel.";
+            l.Location = new Point(12, 12);
+            l.Size = new Size(356, 60);
+            f.Controls.Add(l);
+            Button cancel = new Button();
+            cancel.Text = "Cancel";
+            cancel.DialogResult = DialogResult.Cancel;
+            cancel.Location = new Point(288, 76);
+            cancel.Width = 80;
+            f.Controls.Add(cancel);
+            f.CancelButton = cancel;
+            f.KeyDown += delegate(object s, KeyEventArgs e)
+            {
+                if (e.Control || e.Alt) return;
+                if (e.KeyCode >= Keys.A && e.KeyCode <= Keys.Z)
+                {
+                    result = ((char)('A' + (int)(e.KeyCode - Keys.A))).ToString();
+                }
+                else if (e.KeyCode == Keys.Delete || e.KeyCode == Keys.Back)
+                {
+                    result = "";
+                }
+                else return;
+                e.SuppressKeyPress = true;
+                f.DialogResult = DialogResult.OK;
+            };
+            return f.ShowDialog(owner) == DialogResult.OK ? result : null;
+        }
+    }
+
     // A small text prompt. Returns the new text, or null if cancelled.
     public static string Prompt(string caption, string value)
     {
@@ -280,7 +599,7 @@ sealed class MenuHost : Form
     const int PadTop = 34;         // top of the text pad (its title sits above it)
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.16";
+    const string AppVersion = "1.0.17";
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
     const string RawBase = "https://raw.githubusercontent.com/" + RepoOwner + "/" + RepoName + "/main/";
@@ -342,7 +661,7 @@ sealed class MenuHost : Form
         timer.Interval = 1000;
         timer.Tick += delegate { OnTimer(); };
 
-        tray.Icon = SystemIcons.Application;
+        tray.Icon = Dialogs.AppIcon(SystemInformation.SmallIconSize);
         tray.Text = "WinTools Menu (" + Config.Hotkey + ")";
         tray.Visible = true;
         ContextMenuStrip cm = new ContextMenuStrip();
@@ -563,9 +882,13 @@ sealed class MenuHost : Form
             Start(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), "shell:AppsFolder\\" + app, null, true);
             return;
         }
-        MessageBox.Show("Windows Sandbox is not installed on this PC.\n\n"
-            + "It needs Windows 11 Pro, Enterprise or Education. Turn it on in\n"
-            + "\"Turn Windows features on or off\" (optionalfeatures.exe), then restart the PC.", "WinTools");
+        string sandboxie = Installers.SandboxiePath();
+        if (sandboxie != null)
+        {
+            Start(sandboxie, "", null, true);
+            return;
+        }
+        Installers.SandboxMissing();
     }
 
     // The launch id (shell:AppsFolder\<id>) of an installed app whose id contains idPart or whose name is name.
@@ -612,6 +935,11 @@ sealed class MenuHost : Form
         {
             string alt = Config.Expand(e.Target.Replace("{programfiles}", "{programfiles86}"));
             if (File.Exists(alt)) target = alt;
+        }
+        if (!e.Custom && e.Id == "npp" && !File.Exists(target))
+        {
+            Installers.OfferNotepadPP();
+            return;
         }
         string ext = Path.GetExtension(target).ToLowerInvariant();
         if (ext == ".ps1")
@@ -957,7 +1285,7 @@ sealed class MenuHost : Form
             "try {\r\n" +
             "  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n" +
             "  New-Item -ItemType Directory -Force -Path '" + tmp + "' | Out-Null\r\n" +
-            "  foreach ($f in 'WinToolsMenu.cs', 'install.ps1', 'uninstall.ps1') {\r\n" +
+            "  foreach ($f in 'WinToolsMenu.cs', 'install.ps1', 'uninstall.ps1', 'WinTools.ico') {\r\n" +
             "    Invoke-WebRequest -UseBasicParsing -Uri ('" + RawBase + "' + $f) -OutFile (Join-Path '" + tmp + "' $f)\r\n" +
             "  }\r\n" +
             "  & (Join-Path '" + tmp + "' 'install.ps1')\r\n" +
@@ -1200,15 +1528,16 @@ sealed class SettingsForm : Form
         this.host = host;
         work = entries;
         Text = "WinTools Custom Shortcuts";
+        Icon = Dialogs.AppIcon(new Size(32, 32));
         Font = new Font("Segoe UI", 9.5f);
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(820, 540);
+        ClientSize = new Size(920, 540);
         KeyPreview = true;
         AllowDrop = true;
         DragEnter += OnDragEnter;
         DragDrop += OnDragDrop;
 
-        hint.Text = "Untick to hide an entry. Drag files here to add them. Letters are picked automatically.";
+        hint.Text = "Untick to hide an entry. Drag files here to add them. Double-click the Key column to change a letter.";
         hint.Location = new Point(12, 10);
         hint.AutoSize = true;
         Controls.Add(hint);
@@ -1218,7 +1547,7 @@ sealed class SettingsForm : Form
         list.CheckBoxes = true;
         list.HideSelection = false;
         list.Location = new Point(12, 36);
-        list.Size = new Size(796, 400);
+        list.Size = new Size(896, 400);
         list.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         list.Columns.Add("Key", 50);
         list.Columns.Add("Name", 240);
@@ -1228,6 +1557,11 @@ sealed class SettingsForm : Form
         list.DragEnter += OnDragEnter;
         list.DragDrop += OnDragDrop;
         list.ItemChecked += delegate(object s, ItemCheckedEventArgs e) { ((Entry)e.Item.Tag).Hidden = !e.Item.Checked; };
+        list.MouseDoubleClick += delegate(object s, MouseEventArgs e)
+        {
+            ListViewHitTestInfo hit = list.HitTest(e.Location);
+            if (hit.Item != null && hit.Item.SubItems.IndexOf(hit.SubItem) == 0) ChangeLetter();
+        };
         Controls.Add(list);
 
         AddButton("Up", 12, delegate { MoveSelected(-1); });
@@ -1236,8 +1570,9 @@ sealed class SettingsForm : Form
         AddButton("Add files...", 264, delegate { AddWithDialog(); });
         AddButton("Remove custom", 372, delegate { RemoveCustom(); });
         AddButton("Reset to built-in", 500, delegate { ResetAll(); });
-        AddButton("Cancel", 634, delegate { Close(); });
-        AddButton("Save", 718, delegate { Save(); });
+        AddButton("Change letter...", 628, delegate { ChangeLetter(); });
+        AddButton("Cancel", 750, delegate { Close(); });
+        AddButton("Save", 834, delegate { Save(); });
 
         Button steamBtn = new Button();
         steamBtn.Text = "Add Steam game...";
@@ -1249,7 +1584,7 @@ sealed class SettingsForm : Form
 
         Button uninstallBtn = new Button();
         uninstallBtn.Text = "Uninstall program...";
-        uninstallBtn.Location = new Point(648, 492);
+        uninstallBtn.Location = new Point(748, 492);
         uninstallBtn.Size = new Size(160, 30);
         uninstallBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
         uninstallBtn.Click += delegate { MenuHost.UninstallProgram(); };
@@ -1257,7 +1592,7 @@ sealed class SettingsForm : Form
 
         Button githubBtn = new Button();
         githubBtn.Text = "View on GitHub";
-        githubBtn.Location = new Point(646, 4);
+        githubBtn.Location = new Point(746, 4);
         githubBtn.Size = new Size(162, 26);
         githubBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         githubBtn.Click += delegate { MenuHost.OpenGitHub(); };
@@ -1326,7 +1661,7 @@ sealed class SettingsForm : Form
         Button b = new Button();
         b.Text = text;
         b.Location = new Point(x, 452);
-        b.Size = new Size(text == "Remove custom" || text == "Reset to built-in" ? 116 : 80, 30);
+        b.Size = new Size(text == "Remove custom" || text == "Reset to built-in" || text == "Change letter..." ? 116 : 80, 30);
         b.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
         b.Click += click;
         Controls.Add(b);
@@ -1375,6 +1710,24 @@ sealed class SettingsForm : Form
         work[i] = work[j];
         work[j] = tmp;
         Refresh(j);
+    }
+
+    // Picks a new letter for the selected entry. If another entry has it, the two swap letters.
+    void ChangeLetter()
+    {
+        int i = Selected();
+        if (i < 0) return;
+        string v = Dialogs.PickLetter(this, work[i].Title, work[i].Letter);
+        if (v == null) return;
+        if (v.Length > 0)
+        {
+            foreach (Entry other in work)
+            {
+                if (other != work[i] && string.Equals(other.Letter, v, StringComparison.OrdinalIgnoreCase)) other.Letter = work[i].Letter;
+            }
+        }
+        work[i].Letter = v;
+        Refresh(i);
     }
 
     void Rename()

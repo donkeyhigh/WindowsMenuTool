@@ -15,14 +15,15 @@ I made this for myself. You are welcome to use it if you want to, but:
 
 INSTALL
   Double-click install.cmd. It compiles the program on your PC (csc.exe comes with Windows),
-  starts it, and adds it to Startup so it runs when you sign in. Nothing is downloaded.
+  starts it, and adds it to Startup so it runs when you sign in. Nothing is downloaded,
+  except when you answer Yes to install a missing tool (see MISSING TOOLS).
 
 BUILT-IN SHORTCUTS (press the letter shown underlined)
   F  Firewall                       R  Add or remove programs
   W  Advanced network settings      T  Task Manager
   G  Device Manager                 M  Computer Management
   S  Sounds                         E  Notepad
-  A  Notepad++ (if installed)       D  %appdata% folder
+  A  Notepad++ (offers install)     D  %appdata% folder
   C  %localappdata% folder          U  Startup folder (shell:startup)
   O  Open CMD in the current folder
   P  Open PowerShell in the current folder
@@ -31,8 +32,19 @@ BUILT-IN SHORTCUTS (press the letter shown underlined)
   Y  System, About (Settings > System > About)
   K  Systemegenskaper (sysdm.cpl)
   B  Add Bluetooth Device (the Add a device wizard)
+  L  Reliability Monitor (perfmon /rel)
   If one of your own items already uses one of these letters, the new item
   gets another free letter.
+
+MISSING TOOLS
+  Notepad++   If it is not installed, the menu asks if you want it. Yes downloads
+              and installs it automatically (winget, or the official installer
+              from GitHub if winget is missing). Windows asks for permission.
+  Sandbox     If Windows Sandbox is off, the menu offers to turn it on (Windows
+              asks for permission, then the PC must restart). Windows Home has no
+              Windows Sandbox: the menu offers Sandboxie-Plus instead (installed
+              with winget), and the Sandbox item then opens Sandboxie-Plus.
+              If virtualization is off in the BIOS/UEFI, the menu says so.
 
 USE
   Win+Alt+X          open the menu
@@ -51,6 +63,9 @@ CUSTOM SHORTCUTS
   - Reset everything to the built-in list.
   - Change the hotkey: click "Menu hotkey", press the new combination (it must
     include Win, Ctrl, Alt or Shift), then Save. "Default" puts back Win+Alt+X.
+  - Change letters: select an item and click "Change letter...", or double-click
+    its letter. Press the new letter. If another item has it, the two swap.
+    Delete removes the letter.
   New items get a letter automatically. Save to keep your changes.
 
   Your settings are stored in %LOCALAPPDATA%\WinTools\menu.json.
