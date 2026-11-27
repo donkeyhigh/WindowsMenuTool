@@ -37,7 +37,7 @@ sealed partial class MenuHost : Form
     const int FindRow = 32;        // room taken from the top of the pad while the search box is open
     const int RowHeight = 22;
     const int MinHeight = 340;
-    const string AppVersion = "1.0.32";   // also in VERSION
+    const string AppVersion = "1.0.33";   // also in VERSION
     public static string Version { get { return AppVersion; } }
     const string RepoOwner = "donkeyhigh";
     const string RepoName = "WindowsMenuTool";
@@ -221,7 +221,7 @@ sealed partial class MenuHost : Form
 
     void BuildPad()
     {
-        title.Text = "Plain text: paste here, then copy with Ctrl+C";
+        title.Text = "Plain text: paste here, then copy with Ctrl+C. Ctrl+F to search";
         title.Font = headFont;
         title.ForeColor = Color.FromArgb(156, 163, 175);
         title.AutoSize = true;
